@@ -1,6 +1,20 @@
 <?php declare(strict_types=1);
 
-setlocale(LC_MONETARY, 'en_US');
+// main handler for things
+function handle(Ctx $ctx, string $route) : Response {
+    $pieces = array_values(array_filter(explode('/', $route)));
+    switch (count($pieces)) {
+    case 2:
+        [ $first, $second ] = $pieces;
+        switch ($first) {
+        case 'invoice':
+            return new Response(200, $ctx->invoice($second));
+            break;
+        }
+    }
+
+    return new Response(404, [ 'error' => 'Invalid route: ' . $route ]);
+}
 
 class Response {
 
@@ -19,17 +33,6 @@ class Response {
     }
 }
 
-// main handler for things
-function handle(Ctx $ctx, string $route) : Response {
-    $pieces = array_values(array_filter(explode('/', $route)));
-    if ($pieces[0] == 'invoice' && count($pieces) === 2) {
-        $invoice_id = $pieces[1];
-        $invoice = $ctx->invoice($invoice_id);
-        return new Response(200, $invoice);
-    }
-
-    return new Response(404, [ 'error' => 'Invalid route: ' . $route ]);
-}
 
 function money($num) : string {
     $num = $num ?: 0;
@@ -123,6 +126,10 @@ class RequestCtx {
         return $this->reqById('Invoice', $id);
     }
 
+    public function me($id) {
+        return $this->reqById('Me', $id);
+    }
+
     public function client($id) {
         return $this->reqById('Clients', $id);
     }
@@ -164,7 +171,8 @@ class Ctx {
         return pipeline($this->req_ctx->invoice($id),
             [ 'Total Amount', asFn('money') ],
             [ 'Client', asFn('reset'), asMethod($this->req_ctx, 'client') ],
-            [ 'Invoice Item', asMethod($this, 'invoiceItems') ]
+            [ 'Invoice Item', asMethod($this, 'invoiceItems') ],
+            [ 'From', asFn('reset'), asMethod($this->req_ctx, 'me') ],
         );
     }
 
