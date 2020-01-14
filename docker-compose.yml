@@ -1,0 +1,12 @@
+version: '3'
+services:
+  invoice-proxy:
+    image: php:7.4-cli
+    environment:
+      AIRTABLE_KEY:
+      AIRTABLE_APP:
+    volumes:
+      - ./:/usr/app
+    ports:
+      - 3002:3000
+    command: "php -S 0.0.0.0:3000 /usr/app/index.php"
