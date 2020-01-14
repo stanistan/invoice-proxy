@@ -4,13 +4,10 @@ setlocale(LC_MONETARY, 'en_US.UTF-8');
 
 require_once __DIR__ . '/src/inc.php';
 
-$ctx = new Pipelines(new FetchCtx(
-    $_ENV['AIRTABLE_KEY'],
-    $_ENV['AIRTABLE_APP']
-));
-
 // main handler for the request/response structure
-function route(Pipelines $pipelines, string $route) : Response {
+function route(string $route) : Response {
+
+    $ctx = new FetchCtx($_ENV['AIRTABLE_KEY'], $_ENV['AIRTABLE_APP']);
 
     // extremely bare-bones router
     $pieces = array_values(array_filter(explode('/', $route)));
@@ -19,8 +16,8 @@ function route(Pipelines $pipelines, string $route) : Response {
         [ $first, $second ] = $pieces;
         switch ($first) {
         case 'invoice':
-            $pipeline = $pipelines->invoice();
-            return new Response(200, $pipeline($second));
+            $invoice = pipelines\invoice($ctx);
+            return new Response(200, $invoice($second));
             break;
         }
     }
@@ -29,4 +26,4 @@ function route(Pipelines $pipelines, string $route) : Response {
     return new Response(404, [ 'error' => 'Invalid route: ' . $route ]);
 }
 
-route($ctx, $_SERVER['PHP_SELF'])->send();
+route($_SERVER['PHP_SELF'])->send();
