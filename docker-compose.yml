@@ -9,4 +9,4 @@ services:
       - ./:/usr/app
     ports:
       - 3002:3000
-    command: "php -S 0.0.0.0:3000 /usr/app/index.php"
+    command: "php -S 0.0.0.0:3000 /usr/app/main.php"
