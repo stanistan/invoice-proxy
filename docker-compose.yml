@@ -1,7 +1,7 @@
 version: '3'
 services:
   invoice-proxy:
-    image: php:7.4-cli
+    build: .
     environment:
       AIRTABLE_KEY:
       AIRTABLE_APP:
