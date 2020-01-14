@@ -36,9 +36,9 @@ class Response {
 
 
 function money() : callable {
-    return static function($num) : string {
-        $num = $num ?: 0;
-        return money_format('%n', $num);
+    return function($num) : string {
+        $number = $num ?: 0.00;
+        return money_format('%.2n', $number);
     };
 }
 
@@ -55,25 +55,80 @@ function map(callable $fn) {
     };
 }
 
-function mapField($array, $name, $fns) {
-    $value = $array['fields'][$name];
-    foreach ($fns as $fn) {
-        $value = $fn($value);
-    }
-
-    $array['fields'][$name] = $value;
-    return $array;
+function fields() {
+    return function($object) {
+        return $object['fields'];
+    };
 }
 
-function pipeline($function, ...$pairs) : callable {
-    return function(...$args) use($function, $pairs) : array {
-        $object = $function(...$args);
-        foreach ($pairs as $args) {
-            $field = array_shift($args);
-            $object = mapField($object, $field, $args);
+function discard(...$keys) {
+    return function($object) use($keys) {
+        foreach ($keys as $k) {
+            unset($object[$k]);
         }
         return $object;
     };
+}
+
+function reduce(array $fns) {
+    return function($object) use($fns) {
+        foreach ($fns as $fn) {
+            $object = $fn($object);
+        }
+        return $object;
+    };
+}
+
+function mapKeys(...$field_transforms) {
+    return function($object) use($field_transforms) {
+        foreach ($field_transforms as $field_transform) {
+            $field_name = array_shift($field_transform);
+            $object[$field_name] = reduce($field_transform)($object[$field_name]);
+        }
+        return $object;
+    };
+}
+
+function pickKeys(...$keys) {
+    return function($object) use($keys) {
+        $output = [];
+        foreach ($keys as $k) {
+            $output[$k] = $object[$k];
+        }
+        return $output;
+    };
+}
+
+function mapAndPickKeys(...$field_transforms) {
+    $keys = map(first())($field_transforms);
+    return reduce([mapKeys(...$field_transforms), pickKeys(...$keys)]);
+}
+
+
+class Pipeline {
+
+    private $function;
+    private $transforms;
+
+    public function __construct(callable $function, $transforms) {
+        $this->function = $function;
+        $this->transforms = $transforms;
+    }
+
+    //
+    // When the returned function is called, we apply the args to the
+    // initial `$function`, this allows us to have lazy evaluation of
+    // pipelines.
+    public function __invoke(...$args) {
+        $object = call_user_func_array($this->function, $args);
+        $object = reduce($this->transforms)($object);
+        return $object;
+    }
+
+}
+
+function pipeline(callable $function, ...$field_transforms) : callable {
+    return new Pipeline($function, $field_transforms);
 }
 
 class FetchCtx {
@@ -169,24 +224,53 @@ class Pipelines {
     }
 
     public function invoiceItem() {
-        return pipeline($this->fetch->invoiceItem(),
-            [ 'Amount', money() ],
-            [ 'Invoice Rate', first(), $this->fetch->invoiceRate() ],
+        return pipeline(
+            $this->fetch->invoiceItem(),
+            fields(),
+            mapAndPickKeys(
+                [ 'Date' ],
+                [ 'Description' ],
+                [ 'Quantity' ],
+                [ 'Amount', money() ],
+                [ 'Invoice Rate', first(), $this->fetch->invoiceRate(), fields(), pickKeys('Name', 'Notes') ],
+            ),
         );
     }
 
     public function from() {
-        return pipeline($this->fetch->me(),
-            [ 'Address', fn($address) => explode("\n", $address) ],
+        return pipeline(
+            $this->fetch->me(),
+            fields(),
+            mapAndPickKeys(
+                [ 'Name' ],
+                [ 'Email' ],
+                [ 'Address', fn($address) => explode("\n", $address) ]
+            )
+        );
+    }
+
+    public function client() {
+        return pipeline(
+            $this->fetch->client(),
+            fields(),
+            pickKeys('ContactName', 'Company', 'Website', 'ContactEmail')
         );
     }
 
     public function invoice() {
-        return pipeline($this->fetch->invoice(),
-            [ 'Total Amount', money() ],
-            [ 'From', first(), $this->from() ],
-            [ 'Client', first(), $this->fetch->client() ],
-            [ 'Invoice Item', map($this->invoiceItem()) ],
+        return pipeline(
+            $this->fetch->invoice(),
+            fields(),
+            mapAndPickKeys(
+                [ 'ID' ],
+                [ 'Date' ],
+                [ 'Due Date' ],
+                [ 'Invoice Number' ],
+                [ 'Total Amount', money() ],
+                [ 'From', first(), $this->from() ],
+                [ 'Client', first(), $this->client() ],
+                [ 'Invoice Item', map($this->invoiceItem()) ],
+            )
         );
     }
 
