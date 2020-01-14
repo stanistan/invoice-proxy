@@ -1,14 +1,15 @@
 <?php declare(strict_types=1);
 
 // main handler for things
-function handle(Ctx $ctx, string $route) : Response {
+function handle(Pipelines $pipelines, string $route) : Response {
     $pieces = array_values(array_filter(explode('/', $route)));
     switch (count($pieces)) {
     case 2:
         [ $first, $second ] = $pieces;
         switch ($first) {
         case 'invoice':
-            return new Response(200, $ctx->invoice($second));
+            $pipeline = $pipelines->invoice();
+            return new Response(200, $pipeline($second));
             break;
         }
     }
@@ -34,21 +35,27 @@ class Response {
 }
 
 
-function money($num) : string {
-    $num = $num ?: 0;
-    return money_format('%n', $num);
+function money() : callable {
+    return static function($num) : string {
+        $num = $num ?: 0;
+        return money_format('%n', $num);
+    };
 }
 
-function asMethod($ob, $name) {
-    return Closure::fromCallable([ $ob, $name ]);
+function first($fn = null) : callable {
+    return function($list) use($fn) {
+        $first = reset($list);
+        return $fn ? $fn($first) : $first;
+    };
 }
 
-function asFn($name) {
-    return Closure::fromCallable($name);
+function map(callable $fn) {
+    return function($ids) use($fn) {
+        return array_map($fn, $ids);
+    };
 }
 
 function mapField($array, $name, $fns) {
-
     $value = $array['fields'][$name];
     foreach ($fns as $fn) {
         $value = $fn($value);
@@ -58,15 +65,18 @@ function mapField($array, $name, $fns) {
     return $array;
 }
 
-function pipeline($object, ...$pairs) {
-    foreach ($pairs as $args) {
-        $field = array_shift($args);
-        $object = mapField($object, $field, $args);
-    }
-    return $object;
+function pipeline($function, ...$pairs) : callable {
+    return function(...$args) use($function, $pairs) : array {
+        $object = $function(...$args);
+        foreach ($pairs as $args) {
+            $field = array_shift($args);
+            $object = mapField($object, $field, $args);
+        }
+        return $object;
+    };
 }
 
-class RequestCtx {
+class FetchCtx {
 
     private $base_url;
     private $stream_opts;
@@ -87,10 +97,6 @@ class RequestCtx {
                 'header' => "Authorization: Bearer $auth_key"
             ]
         ];
-    }
-
-    private function reqById(string $table, string $id) {
-        return $this->req(rawurlencode($table) . '/' . $id);
     }
 
     private function req(string $path) : array {
@@ -122,57 +128,65 @@ class RequestCtx {
         return $this->cache[$path] = json_decode($content, true);
     }
 
-    public function invoice($id) {
-        return $this->reqById('Invoice', $id);
+    private function idRequestFor(string $table) : callable {
+        return function(string $id) use ($table) {
+            return $this->req(rawurlencode($table) . '/' . $id);
+        };
     }
 
-    public function me($id) {
-        return $this->reqById('Me', $id);
+    public function invoice() {
+        return $this->idRequestFor('Invoice');
     }
 
-    public function client($id) {
-        return $this->reqById('Clients', $id);
+    public function me() {
+        return $this->idRequestFor('Me');
     }
 
-    public function invoiceItem($id) {
-        return $this->reqById('Invoice Item', $id);
+    public function client() {
+        return $this->idRequestFor('Clients');
     }
 
-    public function unit($id) {
-        return $this->reqById('Invoice Units', $id);
+    public function invoiceItem() {
+        return $this->idRequestFor('Invoice Item');
     }
 
-    public function invoiceRate($id) {
-        return $this->reqById('Invoice Rates', $id);
+    public function unit() {
+        return $this->idRequestFor('Invoice Units');
+    }
+
+    public function invoiceRate() {
+        return $this->idRequestFor('Invoice Rates');
     }
 
 }
 
-class Ctx {
+class Pipelines {
 
-    private $req_ctx;
+    private FetchCtx $fetch;
 
-    public function __construct(RequestCtx $req_ctx) {
-        $this->req_ctx = $req_ctx;
+    public function __construct(FetchCtx $req_ctx) {
+        $this->fetch = $req_ctx;
     }
 
-    public function invoiceItem($id) {
-        return pipeline($this->req_ctx->invoiceItem($id),
-            [ 'Amount', asFn('money') ],
-            [ 'Invoice Rate', asFn('reset'), asMethod($this->req_ctx, 'invoiceRate') ],
+    public function invoiceItem() {
+        return pipeline($this->fetch->invoiceItem(),
+            [ 'Amount', money() ],
+            [ 'Invoice Rate', first(), $this->fetch->invoiceRate() ],
         );
     }
 
-    public function invoiceItems($ids) {
-        return array_map(asMethod($this, 'invoiceItem'), $ids);
+    public function from() {
+        return pipeline($this->fetch->me(),
+            [ 'Address', fn($address) => explode("\n", $address) ],
+        );
     }
 
-    public function invoice($id) {
-        return pipeline($this->req_ctx->invoice($id),
-            [ 'Total Amount', asFn('money') ],
-            [ 'Client', asFn('reset'), asMethod($this->req_ctx, 'client') ],
-            [ 'Invoice Item', asMethod($this, 'invoiceItems') ],
-            [ 'From', asFn('reset'), asMethod($this->req_ctx, 'me') ],
+    public function invoice() {
+        return pipeline($this->fetch->invoice(),
+            [ 'Total Amount', money() ],
+            [ 'From', first(), $this->from() ],
+            [ 'Client', first(), $this->fetch->client() ],
+            [ 'Invoice Item', map($this->invoiceItem()) ],
         );
     }
 
