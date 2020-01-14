@@ -1,5 +1,9 @@
 <?php declare(strict_types=1);
 
+require_once __DIR__ . '/transforms.php';
+
+use transforms as t;
+
 // main handler for things
 function handle(Pipelines $pipelines, string $route) : Response {
     $pieces = array_values(array_filter(explode('/', $route)));
@@ -34,77 +38,6 @@ class Response {
     }
 }
 
-
-function money() : callable {
-    return function($num) : string {
-        $number = $num ?: 0.00;
-        return money_format('%.2n', $number);
-    };
-}
-
-function first($fn = null) : callable {
-    return function($list) use($fn) {
-        $first = reset($list);
-        return $fn ? $fn($first) : $first;
-    };
-}
-
-function map(callable $fn) {
-    return function($ids) use($fn) {
-        return array_map($fn, $ids);
-    };
-}
-
-function fields() {
-    return function($object) {
-        return $object['fields'];
-    };
-}
-
-function discard(...$keys) {
-    return function($object) use($keys) {
-        foreach ($keys as $k) {
-            unset($object[$k]);
-        }
-        return $object;
-    };
-}
-
-function reduce(array $fns) {
-    return function($object) use($fns) {
-        foreach ($fns as $fn) {
-            $object = $fn($object);
-        }
-        return $object;
-    };
-}
-
-function mapKeys(...$field_transforms) {
-    return function($object) use($field_transforms) {
-        foreach ($field_transforms as $field_transform) {
-            $field_name = array_shift($field_transform);
-            $object[$field_name] = reduce($field_transform)($object[$field_name]);
-        }
-        return $object;
-    };
-}
-
-function pickKeys(...$keys) {
-    return function($object) use($keys) {
-        $output = [];
-        foreach ($keys as $k) {
-            $output[$k] = $object[$k];
-        }
-        return $output;
-    };
-}
-
-function mapAndPickKeys(...$field_transforms) {
-    $keys = map(first())($field_transforms);
-    return reduce([mapKeys(...$field_transforms), pickKeys(...$keys)]);
-}
-
-
 class Pipeline {
 
     private $function;
@@ -121,7 +54,7 @@ class Pipeline {
     // pipelines.
     public function __invoke(...$args) {
         $object = call_user_func_array($this->function, $args);
-        $object = reduce($this->transforms)($object);
+        $object = t\reduce($this->transforms)($object);
         return $object;
     }
 
@@ -226,13 +159,13 @@ class Pipelines {
     public function invoiceItem() {
         return pipeline(
             $this->fetch->invoiceItem(),
-            fields(),
-            mapAndPickKeys(
+            t\fields(),
+            t\mapAndPickKeys(
                 [ 'Date' ],
                 [ 'Description' ],
                 [ 'Quantity' ],
-                [ 'Amount', money() ],
-                [ 'Invoice Rate', first(), $this->fetch->invoiceRate(), fields(), pickKeys('Name', 'Notes') ],
+                [ 'Amount', t\money() ],
+                [ 'Invoice Rate', t\first(), $this->fetch->invoiceRate(), t\fields(), t\pickKeys('Name', 'Notes') ],
             ),
         );
     }
@@ -240,8 +173,8 @@ class Pipelines {
     public function from() {
         return pipeline(
             $this->fetch->me(),
-            fields(),
-            mapAndPickKeys(
+            t\fields(),
+            t\mapAndPickKeys(
                 [ 'Name' ],
                 [ 'Email' ],
                 [ 'Address', fn($address) => explode("\n", $address) ]
@@ -252,24 +185,24 @@ class Pipelines {
     public function client() {
         return pipeline(
             $this->fetch->client(),
-            fields(),
-            pickKeys('ContactName', 'Company', 'Website', 'ContactEmail')
+            t\fields(),
+            t\pickKeys('ContactName', 'Company', 'Website', 'ContactEmail')
         );
     }
 
     public function invoice() {
         return pipeline(
             $this->fetch->invoice(),
-            fields(),
-            mapAndPickKeys(
+            t\fields(),
+            t\mapAndPickKeys(
                 [ 'ID' ],
                 [ 'Date' ],
                 [ 'Due Date' ],
                 [ 'Invoice Number' ],
-                [ 'Total Amount', money() ],
-                [ 'From', first(), $this->from() ],
-                [ 'Client', first(), $this->client() ],
-                [ 'Invoice Item', map($this->invoiceItem()) ],
+                [ 'Total Amount', t\money() ],
+                [ 'From', t\first(), $this->from() ],
+                [ 'Client', t\first(), $this->client() ],
+                [ 'Invoice Item', t\map($this->invoiceItem()) ],
             )
         );
     }
