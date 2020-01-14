@@ -1,5 +1,7 @@
 <?php declare(strict_types=1);
 
+use transforms as t;
+
 class FetchCtx {
 
     private $base_url;
@@ -53,9 +55,12 @@ class FetchCtx {
     }
 
     private function idRequestFor(string $table) : callable {
-        return function(string $id) use ($table) {
-            return $this->req(rawurlencode($table) . '/' . $id);
-        };
+        return pipeline(
+            function(string $id) use ($table) {
+                return $this->req(rawurlencode($table) . '/' . $id);
+            },
+            t\fields()
+        );
     }
 
     public function invoice() {
