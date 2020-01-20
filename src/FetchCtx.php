@@ -4,18 +4,22 @@ use transforms as t;
 
 class FetchCtx {
 
-    private $base_url;
-    private $stream_opts;
-    private $cache = [];
+    private string $base_url;
+    private array $stream_opts;
+    private array $cache = [];
+    private DiskCache $disk_cache;
 
-    private const CACHE_VERSION = 'v1';
-
-    public function __construct(string $auth_key, string $space) {
+    public function __construct(
+        string $auth_key,
+        string $space,
+        bool $refresh_disk_cache = false
+    ) {
 
         if (!$auth_key || !$space) {
             throw new Exception("Cannot create a request context");
         }
 
+        $this->disk_cache = new DiskCache("/tmp/invoice-proxy-cache/", $refresh_disk_cache);
         $this->base_url = "https://api.airtable.com/v0/{$space}/";
         $this->stream_opts = [
             'http' => [
@@ -26,32 +30,29 @@ class FetchCtx {
     }
 
     private function req(string $path) : array {
-
+        //
         // first we check to see if this response is
-        // in memory, return it from there,
+        // in memory, return it from there, this is local
+        // to each HTTP request/process, so either way if we
+        // do a `refresh_disk_cache` or not, this is going
+        // to be _fresh_ for that individual proxy request.
         if (isset($this->cache[$path])) {
             return $this->cache[$path];
         }
 
-        $disk_cache_dir = "/tmp/invoice-proxy-cache/" . self::CACHE_VERSION . "/";
-        $disk_cache_path = $disk_cache_dir . md5($path);
-
-        if (!file_exists($disk_cache_path)) {
-            $url = $this->base_url . $path;
-            $context = stream_context_create($this->stream_opts);
-            $content = @file_get_contents($url, false, $context);
-            if (!$content) {
-                throw new Exception("Could not fetch content for url: $url");
+        return $this->cache[$path] = $this->disk_cache->getOrSetWith(
+            $path,
+            function() use($path) {
+                $url = $this->base_url . $path;
+                $context = stream_context_create($this->stream_opts);
+                $json = @file_get_contents($url, false, $context);
+                if (!$json) {
+                    $e = error_get_last();
+                    throw new Exception("Failed to fetch path=$path... {$e['message']}");
+                }
+                return json_decode($json, true);
             }
-            if (!is_dir($disk_cache_dir)) {
-                mkdir($disk_cache_dir, 0777, true);
-            }
-            file_put_contents($disk_cache_path, $content);
-        } else {
-            $content = file_get_contents($disk_cache_path);
-        }
-
-        return $this->cache[$path] = json_decode($content, true);
+        );
     }
 
     private function idRequestFor(string $table) : callable {
