@@ -45,7 +45,12 @@ function invoiceItem(FetchCtx $fetch) {
             [ 'Description' ],
             [ 'Quantity' ],
             [ 'Amount', t\money() ],
-            [ 'Invoice Rate', t\first(), $fetch->invoiceRate(), t\pickKeys('Name', 'Notes') ],
+            [ 'Invoice Rate', t\first(), $fetch->invoiceRate(), t\mapAndPickKeys(
+                [ 'Name' ],
+                [ 'Notes' ],
+                [ 'Rate' ],
+                [ 'Unit', t\first(), $fetch->unit(), t\enter('Name') ]
+            ) ],
         ),
     );
 }
