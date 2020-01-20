@@ -17,3 +17,20 @@ class Response {
     }
 
 }
+
+class ResponseError extends Exception {
+
+    private int $http_code;
+
+    public function __construct($code, $message, Throwable $e) {
+        $this->http_code = $code;
+        parent::__construct($message, 0, $e);
+    }
+
+    public function asResponse() : Response {
+        return new Response($this->http_code, [
+            'error' => 'Not found... ' . $this->getMessage()
+        ]);
+    }
+}
+

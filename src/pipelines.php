@@ -5,20 +5,25 @@ namespace pipelines;
 use FetchCtx;
 use transforms as t;
 
-function invoice(FetchCtx $fetch) {
-    return pipeline(
-        $fetch->invoice(),
-        t\mapAndPickKeys(
-            [ 'ID' ],
-            [ 'Date' ],
-            [ 'Due Date' ],
-            [ 'Invoice Number' ],
-            [ 'Total Amount', t\money() ],
-            [ 'From', t\first(), from($fetch) ],
-            [ 'Client', t\first(), client($fetch) ],
-            [ 'Invoice Item', t\map(invoiceItem($fetch)) ],
-        )
+function invoiceById(FetchCtx $fetch) {
+    return pipeline($fetch->invoiceById(), invoiceFields($fetch));
+}
+
+function invoiceFields(FetchCtx $fetch) {
+    return t\mapAndPickKeys(
+        [ 'ID' ],
+        [ 'Date' ],
+        [ 'Due Date' ],
+        [ 'Invoice Number' ],
+        [ 'Total Amount', t\money() ],
+        [ 'From', t\first(), from($fetch) ],
+        [ 'Client', t\first(), client($fetch) ],
+        [ 'Invoice Item', t\map(invoiceItem($fetch)) ],
     );
+}
+
+function invoice(FetchCtx $fetch) {
+    return pipeline($fetch->invoice(), invoiceFields($fetch));
 }
 
 function from(FetchCtx $fetch) {

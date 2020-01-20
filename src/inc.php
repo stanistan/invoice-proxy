@@ -15,17 +15,23 @@ function route(string $route) : Response {
 
     $ctx = new FetchCtx($_ENV['AIRTABLE_KEY'], $_ENV['AIRTABLE_APP'], isset($_GET['r']));
 
-    // extremely bare-bones router
-    $pieces = array_values(array_filter(explode('/', $route)));
-    switch (count($pieces)) {
-    case 2:
-        [ $first, $second ] = $pieces;
-        switch ($first) {
-        case 'invoice':
-            $invoice = pipelines\invoice($ctx);
-            return new Response(200, $invoice($second));
-            break;
+    try {
+        // extremely bare-bones router
+        $pieces = array_values(array_filter(explode('/', $route)));
+        switch (count($pieces)) {
+        case 2:
+            [ $first, $second ] = $pieces;
+            switch ($first) {
+            case 'invoice':
+                $invoice = pipelines\invoice($ctx);
+                return new Response(200, $invoice($second));
+            case 'invoice-by-id':
+                $invoice = pipelines\invoiceById($ctx);
+                return new Response(200, $invoice($second));
+            }
         }
+    } catch (ResponseError $e) {
+        return $e->asResponse();
     }
 
     // if nothing matched, we send back a 404

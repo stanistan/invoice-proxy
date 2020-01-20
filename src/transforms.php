@@ -2,6 +2,9 @@
 
 namespace transforms;
 
+class InvalidTransform extends \Exception {
+}
+
 function money() : callable {
     return function($num) : string {
         $number = $num ?: 0.00;
@@ -11,6 +14,9 @@ function money() : callable {
 
 function first($fn = null) : callable {
     return function($list) use($fn) {
+        if (empty($list)) {
+            throw new InvalidTransform('Cannot get first of an empty list');
+        }
         $first = \reset($list);
         return $fn ? $fn($first) : $first;
     };
@@ -22,10 +28,14 @@ function map(callable $fn) {
     };
 }
 
-function fields() {
-    return function($object) {
-        return $object['fields'];
+function enter(string $key) {
+    return function($object) use($key) {
+        return $object[$key];
     };
+}
+
+function fields() {
+    return enter('fields');
 }
 
 function discard(...$keys) {

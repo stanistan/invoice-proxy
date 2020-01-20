@@ -21,12 +21,23 @@ class FetchCtx {
 
         $this->disk_cache = new DiskCache("/tmp/invoice-proxy-cache/", $refresh_disk_cache);
         $this->base_url = "https://api.airtable.com/v0/{$space}/";
+
         $this->stream_opts = [
             'http' => [
                 'method' => 'GET',
                 'header' => "Authorization: Bearer $auth_key"
             ]
         ];
+    }
+
+    private function trap(string $message) {
+        return function(Throwable $e) use($message) {
+            if ($e instanceof t\InvalidTransform) {
+                throw new ResponseError(404, $message, $e);
+            } else {
+                throw $e;
+            }
+        };
     }
 
     private function req(string $path) : array {
@@ -48,11 +59,25 @@ class FetchCtx {
                 $json = @file_get_contents($url, false, $context);
                 if (!$json) {
                     $e = error_get_last();
-                    throw new Exception("Failed to fetch path=$path... {$e['message']}");
+                    throw new ResponseError(404, "Failed to fetch path=$path... {$e['message']}");
                 }
                 return json_decode($json, true);
             }
         );
+    }
+
+    private function queryRequestFor(string $table, string $field_name) : callable {
+        return pipeline(
+            function(string $value) use($table, $field_name) {
+                $path = rawurlencode($table) . '?' . http_build_query([
+                    'filterByFormula' => "{$field_name} = '{$value}'"
+                ]);
+                return $this->req($path);
+            },
+            t\enter('records'),
+            t\first(),
+            t\fields()
+        )->withTrap($this->trap("Querying for data in $table by $field_name returned nothing"));
     }
 
     private function idRequestFor(string $table) : callable {
@@ -61,7 +86,7 @@ class FetchCtx {
                 return $this->req(rawurlencode($table) . '/' . $id);
             },
             t\fields()
-        );
+        )->withTrap($this->trap("idRequestFor for $table returned nothing"));
     }
 
     public function invoice() {
@@ -86,6 +111,10 @@ class FetchCtx {
 
     public function invoiceRate() {
         return $this->idRequestFor('Invoice Rates');
+    }
+
+    public function invoiceById() {
+        return $this->queryRequestFor('Invoice', 'ID');
     }
 
 }

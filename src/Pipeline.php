@@ -6,10 +6,16 @@ class Pipeline {
 
     private $function;
     private $transforms;
+    private $trap;
 
     public function __construct(callable $function, $transforms) {
         $this->function = $function;
         $this->transforms = $transforms;
+    }
+
+    public function withTrap(callable $function) {
+        $this->trap = $function;
+        return $this;
     }
 
     //
@@ -17,9 +23,17 @@ class Pipeline {
     // initial `$function`, this allows us to have lazy evaluation of
     // pipelines.
     public function __invoke(...$args) {
-        $object = call_user_func_array($this->function, $args);
-        $object = t\reduce($this->transforms)($object);
-        return $object;
+        try {
+            $object = call_user_func_array($this->function, $args);
+            $object = t\reduce($this->transforms)($object);
+            return $object;
+        } catch (Throwable $e) {
+            if (!$this->trap) {
+                throw $e;
+            } else {
+                return call_user_func($this->trap, $e);
+            }
+        }
     }
 }
 
