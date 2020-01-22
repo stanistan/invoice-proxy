@@ -104,23 +104,18 @@ macro_rules! gen_airtable_schema {
 
     (
         $(
-            $ns:ident
-                - from: $name: expr,
-                - fields: [
+            mod $ns:ident ($name: expr) {
                     $(
-                        $json_key:expr => {
-                            $field_name:ident ($field_type:ty) -> $($transform:ident),+ : $t_field_type:ty
-                        },
+                        $k:expr => fn $fn:ident ($ft:ty) -> $t_ft:ty { $($tfs:ident),+ },
                     )*
-                ]
-        ),*
+            }
+        )*
     ) => {
         gen_airtable_schema! {
             @gen $(
                 $ns, stringify!($ns), $name, [
                     $(
-                        $json_key, $field_name, $field_type,
-                        -> [ $($transform,)* ]: $t_field_type
+                        $k, $fn, $ft, -> [ $($tfs,)* ]: $t_ft
                      )*
                 ],
             )*
