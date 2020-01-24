@@ -37,7 +37,7 @@ impl FetchCtx {
             base = self.config.base,
             table = table,
             id = id
-            );
+        );
         self.client.get(&url).bearer_auth(&self.config.key)
     }
 }

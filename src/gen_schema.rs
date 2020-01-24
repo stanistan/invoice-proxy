@@ -1,5 +1,5 @@
 #[allow(unused)]
-fn compose_two<A, B, C, G, F>(f: F, g: G) -> impl Fn(A) -> C
+pub(crate) fn compose_two<A, B, C, G, F>(f: F, g: G) -> impl Fn(A) -> C
 where
     F: Fn(A) -> B,
     G: Fn(B) -> C,
@@ -11,7 +11,7 @@ where
 macro_rules! compose {
     ( $last:expr ) => { $last };
     ( $head:expr, $($tail:expr), +) => {
-        compose_two($head, compose!($($tail),+))
+        crate::gen_schema::compose_two($head, compose!($($tail),+))
     };
 }
 
@@ -66,7 +66,7 @@ macro_rules! gen_airtable_schema {
                     ///
                     /// See: [`map`](./fn.map.html)
                     #[derive(Debug)]
-                    pub struct Mapped<'a> {
+                    pub struct Mapped {
                         $( pub $field_name: $t_field, )*
                     }
 
@@ -79,23 +79,30 @@ macro_rules! gen_airtable_schema {
                     pub type Many = crate::airtable::response::Many<Fields>;
 
                     /// Get a single typed record via the `FetchCtx`.
-                    pub async fn get_one(ctx: &FetchCtx, id: &str) -> Result<One, reqwest::Error> {
-                        ctx.id_request(NAME, id).send().await?.json::<One>().await
+                    pub async fn get_one<'a, T: AsRef<str>>(ctx: &FetchCtx, id: T) -> Result<One, Error> {
+                        ctx.id_request(NAME, id.as_ref()).send().await
+                            .map_err(|e| Error::Req(e))?
+                            .json::<One>().await
+                            .map_err(|e| Error::Req(e))
                     }
 
                     /// Get a signle _dynamic_ JSON record via the `FetchCtx`.
-                    pub async fn get_one_dynamic(ctx: &FetchCtx, id: &str) -> Result<Value, reqwest::Error> {
-                        ctx.id_request(NAME, id).send().await?.json::<Value>().await
+                    pub async fn get_one_dynamic(ctx: &FetchCtx, id: &str) -> Result<Value, Error> {
+                        ctx.id_request(NAME, id).send().await
+                            .map_err(|e| Error::Req(e))?
+                            .json::<Value>().await
+                            .map_err(|e| Error::Req(e))
                     }
 
                     /// Given a typed API response, create the fully hydrated `Mapped` resource.
-                    pub async fn map<'a>(one: &'a One) -> Mapped<'a> {
-                        Mapped {
+                    pub async fn map<'a>(ctx: &FetchCtx, one: One) -> Result<Mapped,  Error> {
+                        Ok(Mapped {
                             $($field_name: {
-                                let f = compose!($($t),*);
-                                f(&one.fields.$field_name)
+                                let val = one.fields.$field_name;
+                                $( let val = $t(ctx, val).await?; )*
+                                val
                             }),*
-                        }
+                        })
                     }
 
                 }
@@ -106,7 +113,7 @@ macro_rules! gen_airtable_schema {
         $(
             mod $ns:ident ($name: expr) {
                     $(
-                        $k:expr => fn $fn:ident ($ft:ty) -> $t_ft:ty { $($tfs:ident),+ },
+                        $k:expr => fn $fn:ident ($ft:ty) -> $t_ft:ty { $($tfs:expr),+ },
                     )*
             }
         )*
