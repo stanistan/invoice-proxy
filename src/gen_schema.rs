@@ -79,11 +79,19 @@ macro_rules! gen_airtable_schema {
                     pub type Many = crate::airtable::response::Many<Fields>;
 
                     /// Get a single typed record via the `FetchCtx`.
-                    pub async fn get_one<'a, T: AsRef<str>>(ctx: &FetchCtx, id: T) -> Result<One, Error> {
+                    pub async fn get_one<T: AsRef<str>>(ctx: &FetchCtx, id: T) -> Result<One, Error> {
                         ctx.id_request(NAME, id.as_ref()).send().await
                             .map_err(|e| Error::Req(e))?
                             .json::<One>().await
                             .map_err(|e| Error::Req(e))
+                    }
+
+                    pub async fn get_many_by_id<T: AsRef<str>>(ctx: &FetchCtx, ids: Vec<T>) -> Result<Vec<One>, Error> {
+                        let mut result = Vec::with_capacity(ids.len());
+                        for id in ids {
+                            result.push(get_one(ctx, id).await?);
+                        }
+                        Ok(result)
                     }
 
                     /// Get a signle _dynamic_ JSON record via the `FetchCtx`.
@@ -95,7 +103,7 @@ macro_rules! gen_airtable_schema {
                     }
 
                     /// Given a typed API response, create the fully hydrated `Mapped` resource.
-                    pub async fn map<'a>(ctx: &FetchCtx, one: One) -> Result<Mapped,  Error> {
+                    pub async fn map_one(ctx: &FetchCtx, one: One) -> Result<Mapped,  Error> {
                         Ok(Mapped {
                             $($field_name: {
                                 let val = one.fields.$field_name;
@@ -103,6 +111,14 @@ macro_rules! gen_airtable_schema {
                                 val
                             }),*
                         })
+                    }
+
+                    pub async fn map_many(ctx: &FetchCtx, many: Vec<One>) -> Result<Vec<Mapped>, Error> {
+                        let mut result = Vec::with_capacity(many.len());
+                        for one in many {
+                            result.push(map_one(ctx, one).await?);
+                        }
+                        Ok(result)
                     }
 
                 }

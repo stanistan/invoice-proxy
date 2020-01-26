@@ -29,9 +29,22 @@ pub async fn force_bool(_ctx: &FetchCtx, val: Option<bool>) -> Result<bool, Erro
     Ok(val.unwrap_or(false))
 }
 
-pub async fn money<T: std::fmt::Display>(_ctx: &FetchCtx, val: T) -> Result<String,Error> {
-    // FIXME lol
-    Ok(format!("MONEY FiXME {}", val))
+pub async fn money(_ctx: &FetchCtx, val: u32) -> Result<String, Error> {
+    use num_format::{Locale, WriteFormatted};
+    let mut buf = String::from("$");
+    if let Err(_) = buf.write_formatted(&val, &Locale::en) {
+        return Err(Error::Map("could not format money"));
+    }
+    buf.push_str(".00");
+    Ok(buf)
+}
+
+pub async fn split_lines(_ctx: &FetchCtx, val: String) -> Result<Vec<String>, Error> {
+    Ok(val.split("\n").map(|s| s.to_owned()).collect())
+}
+
+pub async fn get_rate_unit_name(_ctx: &FetchCtx, unit: schema::invoice_rate_unit::Mapped) -> Result<String, Error> {
+    Ok(unit.name)
 }
 
 type MaybeBool = Option<bool>;
@@ -47,7 +60,7 @@ async fn main() -> Result<(), Error> {
     // We need to have the config in order to be able to talk
     // to the Airtable API at all.
     let ctx = FetchCtx::from_env().unwrap();
-    let an_invoice = dbg!(invoice::get_one(&ctx, "recLYHi5nzYLlHseu").await?);
+    let an_invoice = invoice::get_one(&ctx, "recLYHi5nzYLlHseu").await?;
 
     /*
     let invoice_item_id = dbg!(an_invoice.fields.invoice_items.first().unwrap());
@@ -57,7 +70,7 @@ async fn main() -> Result<(), Error> {
     dbg!(invoice_client::get_one(&ctx, client_id).await?);
     */
 
-    dbg!(invoice::map(&ctx, an_invoice).await?);
+    dbg!(invoice::map_one(&ctx, an_invoice).await?);
 
     Ok(())
 }
