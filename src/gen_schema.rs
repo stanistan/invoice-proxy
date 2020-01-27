@@ -91,6 +91,11 @@ macro_rules! gen_airtable_schema {
                             })
                         }
 
+                        pub async fn query<T: AsRef<str>>(ctx: &FetchCtx, field: T, value: T) -> Result<One, Error> {
+                            let results = many::query(ctx, field, value).await?;
+                            first(ctx, results.records).await
+                        }
+
                     }
 
                     /// This module contains functions that operate on many items.
@@ -112,6 +117,14 @@ macro_rules! gen_airtable_schema {
                             }
                             Ok(result)
                         }
+
+                        pub async fn query<T: AsRef<str>>(ctx: &FetchCtx, field: T, value: T) -> Result<Many, Error> {
+                            ctx.query_request(NAME, field.as_ref(), value.as_ref()).send().await
+                                .map_err(|e| Error::Req(e))?
+                                .json::<Many>().await
+                                .map_err(|e| Error::Req(e))
+                        }
+
                     }
 
                     // dump in arbitrary tokens
