@@ -283,6 +283,7 @@ dependencies = [
 name = "invoice-proxy"
 version = "0.1.0"
 dependencies = [
+ "hyper 0.13.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "num-format 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "reqwest 0.10.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.104 (registry+https://github.com/rust-lang/crates.io-index)",
