@@ -31,27 +31,18 @@ impl FetchCtx {
         })
     }
 
+    fn base_url(&self, table: &str) -> String {
+        format!("https://api.airtable.com/v0/{base}/{table}", base = self.config.base, table = table)
+    }
+
     pub fn id_request(&self, table: &str, id: &str) -> reqwest::RequestBuilder {
-        let url = format!(
-            "https://api.airtable.com/v0/{base}/{table}/{id}",
-            base = self.config.base,
-            table = table,
-            id = id
-        );
+        let url = format!("{}/{}", self.base_url(table), id);
         self.client.get(&url).bearer_auth(&self.config.key)
     }
 
     pub fn query_request(&self, table: &str, field: &str, value: &str) -> reqwest::RequestBuilder {
-        let path = format!(
-            "https://api.airtable.com/v0/{base}/{table}",
-            base = self.config.base,
-            table = table
-        );
         let query = format!("{{{field}}} = '{value}'", field = field, value = value);
-
-        let url = reqwest::Url::parse_with_params(&path, &[("filterByFormula", &query)]).unwrap();
-
-        dbg!(&url);
+        let url = reqwest::Url::parse_with_params(&self.base_url(table), &[("filterByFormula", &query)]).unwrap();
         self.client.get(url).bearer_auth(&self.config.key)
     }
 }
