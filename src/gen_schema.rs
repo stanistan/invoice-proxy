@@ -78,47 +78,56 @@ macro_rules! gen_airtable_schema {
                     /// [`airtable::response::Many`](../airtable/response/struct.Many.html)
                     pub type Many = crate::airtable::response::Many<Fields>;
 
-                    /// Get a single typed record via the `FetchCtx`.
-                    pub async fn get_one<T: AsRef<str>>(ctx: &FetchCtx, id: T) -> Result<One, Error> {
-                        ctx.id_request(NAME, id.as_ref()).send().await
-                            .map_err(|e| Error::Req(e))?
-                            .json::<One>().await
-                            .map_err(|e| Error::Req(e))
-                    }
+                    pub mod one {
+                        use super::*;
 
-                    pub async fn get_many_by_id<T: AsRef<str>>(ctx: &FetchCtx, ids: Vec<T>) -> Result<Vec<One>, Error> {
-                        let mut result = Vec::with_capacity(ids.len());
-                        for id in ids {
-                            result.push(get_one(ctx, id).await?);
+                        /// Get a single typed record via the `FetchCtx`.
+                        pub async fn get<T: AsRef<str>>(ctx: &FetchCtx, id: T) -> Result<One, Error> {
+                            ctx.id_request(NAME, id.as_ref()).send().await
+                                .map_err(|e| Error::Req(e))?
+                                .json::<One>().await
+                                .map_err(|e| Error::Req(e))
                         }
-                        Ok(result)
-                    }
 
-                    /// Get a signle _dynamic_ JSON record via the `FetchCtx`.
-                    pub async fn get_one_dynamic(ctx: &FetchCtx, id: &str) -> Result<Value, Error> {
-                        ctx.id_request(NAME, id).send().await
-                            .map_err(|e| Error::Req(e))?
-                            .json::<Value>().await
-                            .map_err(|e| Error::Req(e))
-                    }
-
-                    /// Given a typed API response, create the fully hydrated `Mapped` resource.
-                    pub async fn map_one(ctx: &FetchCtx, one: One) -> Result<Mapped,  Error> {
-                        Ok(Mapped {
-                            $($field_name: {
-                                let val = one.fields.$field_name;
-                                $( let val = $t(ctx, val).await?; )*
-                                val
-                            }),*
-                        })
-                    }
-
-                    pub async fn map_many(ctx: &FetchCtx, many: Vec<One>) -> Result<Vec<Mapped>, Error> {
-                        let mut result = Vec::with_capacity(many.len());
-                        for one in many {
-                            result.push(map_one(ctx, one).await?);
+                        /// Get a signle _dynamic_ JSON record via the `FetchCtx`.
+                        pub async fn get_dynamic(ctx: &FetchCtx, id: &str) -> Result<Value, Error> {
+                            ctx.id_request(NAME, id).send().await
+                                .map_err(|e| Error::Req(e))?
+                                .json::<Value>().await
+                                .map_err(|e| Error::Req(e))
                         }
-                        Ok(result)
+
+                        /// Given a typed API response, create the fully hydrated `Mapped` resource.
+                        pub async fn map(ctx: &FetchCtx, one: One) -> Result<Mapped,  Error> {
+                            Ok(Mapped {
+                                $($field_name: {
+                                    let val = one.fields.$field_name;
+                                    $( let val = $t(ctx, val).await?; )*
+                                        val
+                                }),*
+                            })
+                        }
+
+                    }
+
+                    pub mod many {
+                        use super::*;
+
+                        pub async fn get<T: AsRef<str>>(ctx: &FetchCtx, ids: Vec<T>) -> Result<Vec<One>, Error> {
+                            let mut result = Vec::with_capacity(ids.len());
+                            for id in ids {
+                                result.push(one::get(ctx, id).await?);
+                            }
+                            Ok(result)
+                        }
+
+                        pub async fn map(ctx: &FetchCtx, many: Vec<One>) -> Result<Vec<Mapped>, Error> {
+                            let mut result = Vec::with_capacity(many.len());
+                            for one in many {
+                                result.push(one::map(ctx, one).await?);
+                            }
+                            Ok(result)
+                        }
                     }
 
                     $($($tokens)*)?

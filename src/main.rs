@@ -13,7 +13,7 @@ async fn main() -> Result<(), transform::Error> {
     // We need to have the config in order to be able to talk
     // to the Airtable API at all.
     let ctx = FetchCtx::from_env().unwrap();
-    let an_invoice = invoice::get_one(&ctx, "recLYHi5nzYLlHseu").await?;
+    let an_invoice = invoice::one::get(&ctx, "recLYHi5nzYLlHseu").await?;
 
     /*
     let invoice_item_id = dbg!(an_invoice.fields.invoice_items.first().unwrap());
@@ -23,7 +23,7 @@ async fn main() -> Result<(), transform::Error> {
     dbg!(invoice_client::get_one(&ctx, client_id).await?);
     */
 
-    dbg!(invoice::map_one(&ctx, an_invoice).await?);
+    dbg!(invoice::one::map(&ctx, an_invoice).await?);
 
     Ok(())
 }
