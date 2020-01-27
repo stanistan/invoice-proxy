@@ -42,11 +42,14 @@ impl FetchCtx {
     }
 
     pub fn query_request(&self, table: &str, field: &str, value: &str) -> reqwest::RequestBuilder {
-        let path = format!("https://api.airtable.com/v0/{base}/{table}", base = self.config.base, table = table);
+        let path = format!(
+            "https://api.airtable.com/v0/{base}/{table}",
+            base = self.config.base,
+            table = table
+        );
         let query = format!("{{{field}}} = '{value}'", field = field, value = value);
 
-        let url = reqwest::Url::parse_with_params(&path, &[("filterByFormula", &query)])
-            .unwrap();
+        let url = reqwest::Url::parse_with_params(&path, &[("filterByFormula", &query)]).unwrap();
 
         dbg!(&url);
         self.client.get(url).bearer_auth(&self.config.key)

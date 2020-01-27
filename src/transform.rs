@@ -20,7 +20,7 @@ pub async fn id<'a, T: Sized>(_ctx: &'a FetchCtx, t: T) -> Result<T, Error> {
 pub async fn first<T>(_ctx: &FetchCtx, mut vec: Vec<T>) -> Result<T, Error> {
     match vec.get(0) {
         None => Err(Error::Map("Cannot get the first item from an empty vec")),
-        _ => Ok(vec.swap_remove(0))
+        _ => Ok(vec.swap_remove(0)),
     }
 }
 

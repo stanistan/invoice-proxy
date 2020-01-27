@@ -75,4 +75,3 @@ gen_airtable_schema! {
     }
 
 }
-
