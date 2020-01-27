@@ -33,7 +33,7 @@ macro_rules! gen_airtable_schema {
         @gen $(
             $ns:ident, $ns_name:expr, $name:expr, [ $(
                 $json_name:expr, $field_name:ident, $field_type:ty, -> [ $($t:expr,)* ]: $t_field:ty
-            )*],
+            )*], $({ $($tokens:tt)* })?
         )*
     ) => {
             $(
@@ -121,6 +121,7 @@ macro_rules! gen_airtable_schema {
                         Ok(result)
                     }
 
+                    $($($tokens)*)?
                 }
             )*
     };
@@ -131,7 +132,7 @@ macro_rules! gen_airtable_schema {
                     $(
                         $k:expr => fn $fn:ident ($ft:ty) -> $t_ft:ty { $($tfs:expr),+ },
                     )*
-            }
+            } $({ $($tokens:tt)* })?
         )*
     ) => {
         gen_airtable_schema! {
@@ -141,6 +142,7 @@ macro_rules! gen_airtable_schema {
                         $k, $fn, $ft, -> [ $($tfs,)* ]: $t_ft
                      )*
                 ],
+                $({ $($tokens)* })?
             )*
         }
     }

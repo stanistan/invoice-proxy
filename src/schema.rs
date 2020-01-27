@@ -1,9 +1,15 @@
 use super::*;
+use crate::transform::*;
 
 gen_airtable_schema! {
 
     mod invoice_rate_unit("Invoice Units") {
         "Name" => fn name(String) -> String { id },
+    } {
+        /// Extract the name from the rate unit.
+        pub async fn get_name(_ctx: &FetchCtx, unit: Mapped) -> Result<String, Error> {
+            Ok(unit.name)
+        }
     }
 
     mod invoice_item_rate("Invoice Rates") {
@@ -14,7 +20,7 @@ gen_airtable_schema! {
             first,
             invoice_rate_unit::get_one,
             invoice_rate_unit::map_one,
-            get_rate_unit_name
+            invoice_rate_unit::get_name
         },
     }
 
