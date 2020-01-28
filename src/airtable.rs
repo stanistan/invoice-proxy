@@ -90,7 +90,7 @@ impl FetchCtx {
         id: &str,
     ) -> Result<T, Error> {
         let url = self.id_request(table, id);
-        self.fetch(url).await.map_err(|e| Error::Req(e))
+        self.fetch(url).await.map_err(Error::Req)
     }
 
     pub async fn fetch_query<T: DeserializeOwned>(
@@ -100,7 +100,7 @@ impl FetchCtx {
         value: &str,
     ) -> Result<T, Error> {
         let url = self.query_request(table, field, value);
-        self.fetch(url).await.map_err(|e| Error::Req(e))
+        self.fetch(url).await.map_err(Error::Req)
     }
 }
 

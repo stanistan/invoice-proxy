@@ -20,11 +20,11 @@ impl std::error::Error for Error {}
 pub type MaybeBool = Option<bool>;
 pub type IDs = Vec<String>;
 
-pub async fn copy<'a, T: Copy>(_ctx: &'a FetchCtx, t: T) -> Result<T, Error> {
+pub async fn copy<T: Copy>(_ctx: &FetchCtx, t: T) -> Result<T, Error> {
     Ok(t)
 }
 
-pub async fn id<'a, T: Sized>(_ctx: &'a FetchCtx, t: T) -> Result<T, Error> {
+pub async fn id<T: Sized>(_ctx: &FetchCtx, t: T) -> Result<T, Error> {
     Ok(t)
 }
 
@@ -42,7 +42,7 @@ pub async fn force_bool(_ctx: &FetchCtx, val: Option<bool>) -> Result<bool, Erro
 pub async fn money(_ctx: &FetchCtx, val: u32) -> Result<String, Error> {
     use num_format::{Locale, WriteFormatted};
     let mut buf = String::from("$");
-    if let Err(_) = buf.write_formatted(&val, &Locale::en) {
+    if buf.write_formatted(&val, &Locale::en).is_err() {
         return Err(Error::Map("could not format money"));
     }
     buf.push_str(".00");
@@ -50,5 +50,5 @@ pub async fn money(_ctx: &FetchCtx, val: u32) -> Result<String, Error> {
 }
 
 pub async fn split_lines(_ctx: &FetchCtx, val: String) -> Result<Vec<String>, Error> {
-    Ok(val.split("\n").map(|s| s.to_owned()).collect())
+    Ok(val.split('\n').map(|s| s.to_owned()).collect())
 }

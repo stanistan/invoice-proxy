@@ -1,5 +1,3 @@
-#![feature(concat_idents)]
-
 mod airtable;
 mod gen_schema;
 mod schema;
