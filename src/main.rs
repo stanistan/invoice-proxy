@@ -6,9 +6,9 @@ mod schema;
 mod transform;
 
 use airtable::FetchCtx;
-use warp::Filter;
 use std::sync::Arc;
 use tokio::sync::Mutex;
+use warp::Filter;
 
 type Ctx = Arc<Mutex<FetchCtx>>;
 
@@ -23,7 +23,6 @@ async fn fetch_invoice_for_id(id: String, ctx: Ctx) -> Result<impl warp::Reply, 
         }
     }
 
-
     Err(warp::reject::not_found())
 }
 
@@ -33,7 +32,6 @@ fn with_ctx(ctx: Ctx) -> impl Filter<Extract = (Ctx,), Error = std::convert::Inf
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-
     let ctx = Arc::new(Mutex::new(FetchCtx::from_env()?));
 
     let invoice = warp::path!("invoice" / String)
@@ -41,6 +39,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         .and(with_ctx(ctx.clone()))
         .and_then(fetch_invoice_for_id);
 
-    warp::serve(invoice).run(([ 127, 0, 0, 1 ], 3000)).await;
+    warp::serve(invoice).run(([127, 0, 0, 1], 3000)).await;
     Ok(())
 }

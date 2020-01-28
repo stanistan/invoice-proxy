@@ -1,8 +1,8 @@
+use super::transform::Error;
 use reqwest::Url;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 use std::collections::HashMap;
-use super::transform::Error;
 
 #[derive(Debug)]
 pub(crate) struct Config {
@@ -26,7 +26,7 @@ pub struct FetchCtx {
     client: reqwest::Client,
     cache_hits: u32,
     cache_misses: u32,
-    cache: HashMap<Url, serde_json::Value>
+    cache: HashMap<Url, serde_json::Value>,
 }
 
 impl FetchCtx {
@@ -45,7 +45,11 @@ impl FetchCtx {
     }
 
     fn base_url(&self, table: &str) -> String {
-        format!("https://api.airtable.com/v0/{base}/{table}", base = self.config.base, table = table)
+        format!(
+            "https://api.airtable.com/v0/{base}/{table}",
+            base = self.config.base,
+            table = table
+        )
     }
 
     fn id_request(&mut self, table: &str, id: &str) -> reqwest::Url {
@@ -55,16 +59,22 @@ impl FetchCtx {
 
     fn query_request(&mut self, table: &str, field: &str, value: &str) -> reqwest::Url {
         let query = format!("{{{field}}} = '{value}'", field = field, value = value);
-        reqwest::Url::parse_with_params(&self.base_url(table), &[("filterByFormula", &query)]).unwrap()
+        reqwest::Url::parse_with_params(&self.base_url(table), &[("filterByFormula", &query)])
+            .unwrap()
     }
 
     async fn fetch<T: DeserializeOwned>(&mut self, url: reqwest::Url) -> Result<T, reqwest::Error> {
         let value: Value;
         if !self.cache.contains_key(&url) {
             self.cache_misses += 1;
-            value = self.client.get(url.clone()).bearer_auth(&self.config.key)
-                .send().await?
-                .json::<Value>().await?;
+            value = self
+                .client
+                .get(url.clone())
+                .bearer_auth(&self.config.key)
+                .send()
+                .await?
+                .json::<Value>()
+                .await?;
             self.cache.insert(url, value.clone());
         } else {
             self.cache_hits += 1;
@@ -74,12 +84,21 @@ impl FetchCtx {
         Ok(serde_json::from_value(value).unwrap())
     }
 
-    pub async fn fetch_id<T: DeserializeOwned>(&mut self, table: &str, id: &str) -> Result<T, Error> {
+    pub async fn fetch_id<T: DeserializeOwned>(
+        &mut self,
+        table: &str,
+        id: &str,
+    ) -> Result<T, Error> {
         let url = self.id_request(table, id);
         self.fetch(url).await.map_err(|e| Error::Req(e))
     }
 
-    pub async fn fetch_query<T: DeserializeOwned>(&mut self, table: &str, field: &str, value: &str) -> Result<T, Error> {
+    pub async fn fetch_query<T: DeserializeOwned>(
+        &mut self,
+        table: &str,
+        field: &str,
+        value: &str,
+    ) -> Result<T, Error> {
         let url = self.query_request(table, field, value);
         self.fetch(url).await.map_err(|e| Error::Req(e))
     }
