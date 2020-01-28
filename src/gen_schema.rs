@@ -14,7 +14,7 @@
 macro_rules! gen_airtable_schema {
     (
         @gen $(
-            $ns:ident, $ns_name:expr, $name:expr, $($mapped_name:ident)? [ $(
+            $ns:ident, $ns_name:expr, $name:expr, $mapped_name:ident [ $(
                 $json_name:expr, $field_name:ident, $field_type:ty, -> [ $($t:expr,)* ]: $t_field:ty
             )*], $({ $($tokens:tt)* })?
         )*
@@ -65,23 +65,17 @@ macro_rules! gen_airtable_schema {
                         use super::*;
 
                         /// Get a single typed record via the `FetchCtx`.
-                        pub async fn get<T: AsRef<str>>(ctx: &FetchCtx, id: T) -> Result<One, Error> {
-                            ctx.id_request(NAME, id.as_ref()).send().await
-                                .map_err(|e| Error::Req(e))?
-                                .json::<One>().await
-                                .map_err(|e| Error::Req(e))
+                        pub async fn get<T: AsRef<str>>(ctx: &mut FetchCtx, id: T) -> Result<One, Error> {
+                            ctx.fetch_id(NAME, id.as_ref()).await
                         }
 
                         /// Get a signle _dynamic_ JSON record via the `FetchCtx`.
-                        pub async fn get_dynamic(ctx: &FetchCtx, id: &str) -> Result<Value, Error> {
-                            ctx.id_request(NAME, id).send().await
-                                .map_err(|e| Error::Req(e))?
-                                .json::<Value>().await
-                                .map_err(|e| Error::Req(e))
+                        pub async fn get_dynamic(ctx: &mut FetchCtx, id: &str) -> Result<Value, Error> {
+                            ctx.fetch_id(NAME, id.as_ref()).await
                         }
 
                         /// Given a typed API response, create the fully hydrated `Mapped` resource.
-                        pub async fn map(ctx: &FetchCtx, one: One) -> Result<Mapped,  Error> {
+                        pub async fn map(ctx: &mut FetchCtx, one: One) -> Result<Mapped,  Error> {
                             Ok(Mapped {
                                 $($field_name: {
                                     let val = one.fields.$field_name;
@@ -91,7 +85,7 @@ macro_rules! gen_airtable_schema {
                             })
                         }
 
-                        pub async fn query<T: AsRef<str>>(ctx: &FetchCtx, field: T, value: T) -> Result<One, Error> {
+                        pub async fn query<T: AsRef<str>>(ctx: &mut FetchCtx, field: T, value: T) -> Result<One, Error> {
                             let results = many::query(ctx, field, value).await?;
                             first(ctx, results.records).await
                         }
@@ -102,7 +96,7 @@ macro_rules! gen_airtable_schema {
                     pub mod many {
                         use super::*;
 
-                        pub async fn get<T: AsRef<str>>(ctx: &FetchCtx, ids: Vec<T>) -> Result<Vec<One>, Error> {
+                        pub async fn get<T: AsRef<str>>(ctx: &mut FetchCtx, ids: Vec<T>) -> Result<Vec<One>, Error> {
                             let mut result = Vec::with_capacity(ids.len());
                             for id in ids {
                                 result.push(one::get(ctx, id).await?);
@@ -110,7 +104,7 @@ macro_rules! gen_airtable_schema {
                             Ok(result)
                         }
 
-                        pub async fn map(ctx: &FetchCtx, many: Vec<One>) -> Result<Vec<Mapped>, Error> {
+                        pub async fn map(ctx: &mut FetchCtx, many: Vec<One>) -> Result<Vec<Mapped>, Error> {
                             let mut result = Vec::with_capacity(many.len());
                             for one in many {
                                 result.push(one::map(ctx, one).await?);
@@ -118,11 +112,8 @@ macro_rules! gen_airtable_schema {
                             Ok(result)
                         }
 
-                        pub async fn query<T: AsRef<str>>(ctx: &FetchCtx, field: T, value: T) -> Result<Many, Error> {
-                            ctx.query_request(NAME, field.as_ref(), value.as_ref()).send().await
-                                .map_err(|e| Error::Req(e))?
-                                .json::<Many>().await
-                                .map_err(|e| Error::Req(e))
+                        pub async fn query<T: AsRef<str>>(ctx: &mut FetchCtx, field: T, value: T) -> Result<Many, Error> {
+                            ctx.fetch_query(NAME, field.as_ref(), value.as_ref()).await
                         }
 
                     }
@@ -130,13 +121,13 @@ macro_rules! gen_airtable_schema {
                     // dump in arbitrary tokens
                     $($($tokens)*)?
                 }
-                $(
-                    #[allow(unused)]
-                    #[doc = "Generated alias from `"]
-                    #[doc = $ns_name]
-                    #[doc = ":: Mapped`."]
-                    pub type $mapped_name = $ns::Mapped;
-                )?
+
+                #[allow(unused)]
+                #[doc = "Generated alias from `"]
+                #[doc = $ns_name]
+                #[doc = ":: Mapped`."]
+                pub type $mapped_name = $ns::Mapped;
+
             )*
     };
 
