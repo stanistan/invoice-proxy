@@ -6,6 +6,19 @@ pub enum Error {
     Map(&'static str),
 }
 
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        match self {
+            Error::Req(ref e) => write!(f, "Reqwest error: {}", e),
+            Error::Map(ref s) => write!(f, "Mapping error: {}", s)
+        }
+    }
+}
+
+impl std::error::Error for Error {
+
+}
+
 pub type MaybeBool = Option<bool>;
 pub type IDs = Vec<String>;
 

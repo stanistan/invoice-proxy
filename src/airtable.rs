@@ -14,6 +14,7 @@ impl Config {
     }
 }
 
+#[derive(Debug)]
 pub struct FetchCtx {
     config: Config,
     client: reqwest::Client,
