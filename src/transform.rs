@@ -44,6 +44,7 @@ pub async fn force_bool(_ctx: &FetchCtx, val: Option<bool>) -> Result<bool, Erro
 }
 
 pub async fn money(_ctx: &FetchCtx, val: u32) -> Result<String, Error> {
+    // FIXME: this doesn't do anything with decimals :(
     use num_format::{Locale, WriteFormatted};
     let mut buf = String::from("$");
     if buf.write_formatted(&val, &Locale::en).is_err() {
