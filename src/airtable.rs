@@ -21,7 +21,7 @@ impl Config {
 }
 
 #[derive(Debug)]
-struct RequestCache {
+pub(crate) struct RequestCache {
     hits: u32,
     misses: u32,
     storage: HashMap<Url, Value>,
@@ -34,6 +34,16 @@ impl RequestCache {
             misses: 0,
             storage: HashMap::new(),
         }
+    }
+
+    pub(crate) fn stats(&self) -> (u32, u32) {
+        (self.hits, self.misses)
+    }
+
+    pub(crate) fn clear(&mut self) {
+        self.hits = 0;
+        self.misses = 0;
+        self.storage.clear();
     }
 }
 
@@ -66,7 +76,7 @@ impl RequestCache {
 pub struct FetchCtx {
     config: Config,
     client: reqwest::Client,
-    cache: RequestCache,
+    pub(crate) cache: RequestCache,
 }
 
 async fn fetch_url(client: reqwest::Client, url: Url, auth: &str) -> JSONResult {

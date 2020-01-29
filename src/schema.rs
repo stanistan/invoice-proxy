@@ -55,8 +55,8 @@ gen_airtable_schema! {
         "Notes" => fn notes(Option<String>) -> Option<String> { id },
         "Date" => fn date(String) -> String { id },
         "Due Date" => fn due_date(String) -> String { id },
-        "Sent" => fn was_sent(MaybeBool) -> bool { force_bool },
-        "Paid" => fn was_paid(MaybeBool) -> bool { force_bool },
+        "Sent?" => fn was_sent(MaybeBool) -> bool { force_bool },
+        "Paid?" => fn was_paid(MaybeBool) -> bool { force_bool },
         "Total Amount" => fn total(u32) -> String { money },
         "From" => fn from(IDs) -> InvoiceFrom {
             first,
