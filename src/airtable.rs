@@ -21,12 +21,56 @@ impl Config {
 }
 
 #[derive(Debug)]
+struct RequestCache {
+    hits: u32,
+    misses: u32,
+    storage: HashMap<Url, Value>,
+}
+
+impl RequestCache {
+    fn new() -> Self {
+        Self {
+            hits: 0,
+            misses: 0,
+            storage: HashMap::new(),
+        }
+    }
+}
+
+type JSONResult = Result<Value, reqwest::Error>;
+
+impl RequestCache {
+    async fn get_or_insert_with<
+        G: std::future::Future<Output = JSONResult>,
+        F: FnOnce(Url) -> G,
+    >(
+        &mut self,
+        url: Url,
+        f: F,
+    ) -> JSONResult {
+        // we have it!
+        if let Some(value) = self.storage.get(&url) {
+            self.hits += 1;
+            return Ok(value.clone());
+        }
+
+        // ok we don't have it.
+        self.misses += 1;
+        let value = f(url.clone()).await?;
+        self.storage.insert(url, value.clone());
+        Ok(value)
+    }
+}
+
+#[derive(Debug)]
 pub struct FetchCtx {
     config: Config,
     client: reqwest::Client,
-    cache_hits: u32,
-    cache_misses: u32,
-    cache: HashMap<Url, serde_json::Value>,
+    cache: RequestCache,
+}
+
+async fn fetch_url(client: reqwest::Client, url: Url, auth: &str) -> JSONResult {
+    client.get(url).bearer_auth(auth).send().await?.json().await
 }
 
 impl FetchCtx {
@@ -37,10 +81,8 @@ impl FetchCtx {
         let config = Config::from_env()?;
         Ok(Self {
             config,
-            cache_hits: 0,
-            cache_misses: 0,
+            cache: RequestCache::new(),
             client: reqwest::Client::new(),
-            cache: HashMap::new(),
         })
     }
 
@@ -52,36 +94,26 @@ impl FetchCtx {
         )
     }
 
-    fn id_request(&mut self, table: &str, id: &str) -> reqwest::Url {
+    fn id_request(&mut self, table: &str, id: &str) -> Result<Url, Error> {
         let url = format!("{}/{}", self.base_url(table), id);
-        reqwest::Url::parse(&url).unwrap()
+        Url::parse(&url).map_err(Error::UrlParser)
     }
 
-    fn query_request(&mut self, table: &str, field: &str, value: &str) -> reqwest::Url {
+    fn query_request(&mut self, table: &str, field: &str, value: &str) -> Result<Url, Error> {
         let query = format!("{{{field}}} = '{value}'", field = field, value = value);
-        reqwest::Url::parse_with_params(&self.base_url(table), &[("filterByFormula", &query)])
-            .unwrap()
+        Url::parse_with_params(&self.base_url(table), &[("filterByFormula", &query)])
+            .map_err(Error::UrlParser)
     }
 
-    async fn fetch<T: DeserializeOwned>(&mut self, url: reqwest::Url) -> Result<T, reqwest::Error> {
-        let value: Value;
-        if !self.cache.contains_key(&url) {
-            self.cache_misses += 1;
-            value = self
-                .client
-                .get(url.clone())
-                .bearer_auth(&self.config.key)
-                .send()
-                .await?
-                .json::<Value>()
-                .await?;
-            self.cache.insert(url, value.clone());
-        } else {
-            self.cache_hits += 1;
-            value = self.cache.get(&url).cloned().unwrap();
-        }
-
-        Ok(serde_json::from_value(value).unwrap())
+    async fn fetch<T: DeserializeOwned>(&mut self, url: Url) -> Result<T, Error> {
+        let client = self.client.clone();
+        let key = &self.config.key;
+        let value = self
+            .cache
+            .get_or_insert_with(url, move |u| fetch_url(client, u, key))
+            .await
+            .map_err(Error::Req)?;
+        serde_json::from_value(value).map_err(Error::SerdeTransform)
     }
 
     pub async fn fetch_id<T: DeserializeOwned>(
@@ -89,8 +121,8 @@ impl FetchCtx {
         table: &str,
         id: &str,
     ) -> Result<T, Error> {
-        let url = self.id_request(table, id);
-        self.fetch(url).await.map_err(Error::Req)
+        let url = self.id_request(table, id)?;
+        self.fetch(url).await
     }
 
     pub async fn fetch_query<T: DeserializeOwned>(
@@ -99,8 +131,8 @@ impl FetchCtx {
         field: &str,
         value: &str,
     ) -> Result<T, Error> {
-        let url = self.query_request(table, field, value);
-        self.fetch(url).await.map_err(Error::Req)
+        let url = self.query_request(table, field, value)?;
+        self.fetch(url).await
     }
 }
 

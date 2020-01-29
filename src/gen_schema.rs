@@ -74,6 +74,7 @@ macro_rules! gen_airtable_schema {
                         ctx.fetch_id(NAME, id.as_ref()).await
                     }
 
+                    #[allow(clippy::let_and_return)]
                     /// Given a typed API response, create the fully hydrated `Mapped` resource.
                     pub async fn map(ctx: &mut FetchCtx, one: One) -> Result<Mapped,  Error> {
                         Ok(Mapped {
