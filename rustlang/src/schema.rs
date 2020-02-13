@@ -7,10 +7,7 @@ gen_airtable_schema! {
     mod invoice_rate_unit("Invoice Units") as InvoiceUnit {
         "Name" => fn name(String) -> String { id },
     } {
-        /// Extract the name from the rate unit.
-        pub async fn get_name(_ctx: &FetchCtx, unit: Mapped) -> Result<String, Error> {
-            Ok(unit.name)
-        }
+        pure_fn!(get_name(unit: Mapped) -> String { Ok(unit.name) });
     }
 
     mod invoice_item_rate("Invoice Rates") as InvoiceRate {

@@ -12,8 +12,6 @@ use crate::error::Error;
 pub type MaybeBool = Option<bool>;
 pub type IDs = Vec<String>;
 
-type Result<T> = std::result::Result<T, Error>;
-
 #[macro_export]
 macro_rules! compose {
 
@@ -33,6 +31,7 @@ macro_rules! compose {
     };
 }
 
+#[macro_export]
 macro_rules! pure_fn {
     (
         $name: ident $(<$T:ident $(: $tokens:tt)?>)?
@@ -41,7 +40,7 @@ macro_rules! pure_fn {
         )
         -> $ret:ty { $($body:tt)* }
     ) => {
-        pub async fn $name $(<$T $(: $tokens)?>)?(_: &FetchCtx, $arg_name: $arg_type) -> Result<$ret> {
+        pub async fn $name $(<$T $(: $tokens)?>)?(_: &FetchCtx, $arg_name: $arg_type) -> Result<$ret, Error> {
             $($body)*
         }
     }
@@ -74,7 +73,7 @@ pure_fn!(split_lines(val: String) -> Vec<String> {
     Ok(val.split('\n').map(|s| s.to_owned()).collect())
 });
 
-fn get_first<T>(mut vec: Vec<T>) -> Result<T> {
+fn get_first<T>(mut vec: Vec<T>) -> Result<T, Error> {
     match vec.get(0) {
         None => Err(Error::Map("Cannot get the first item from an empty vec")),
         _ => Ok(vec.swap_remove(0)),
