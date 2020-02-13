@@ -5,8 +5,8 @@
 //! 3. take the second parameter via ownership
 //! 4. return a `Result<_, Error>` which is defined below.
 
-use crate::airtable::FetchCtx;
 use crate::airtable::response;
+use crate::airtable::FetchCtx;
 
 #[macro_export]
 macro_rules! compose {
@@ -85,7 +85,9 @@ pub async fn split_lines(_ctx: &FetchCtx, val: String) -> Result<Vec<String>, Er
     Ok(val.split('\n').map(|s| s.to_owned()).collect())
 }
 
-pub async fn into_records<T>(_ctx: &FetchCtx, many: response::Many<T>) -> Result<Vec<response::One<T>>, Error> {
+pub async fn into_records<T>(
+    _ctx: &FetchCtx,
+    many: response::Many<T>,
+) -> Result<Vec<response::One<T>>, Error> {
     Ok(many.records)
 }
-

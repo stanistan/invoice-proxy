@@ -149,7 +149,7 @@ impl FetchCtx {
 pub mod request {
     pub struct QueryParam<'a, 'b> {
         pub key: &'a str,
-        pub value: &'b str
+        pub value: &'b str,
     }
 }
 

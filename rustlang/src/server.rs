@@ -1,5 +1,5 @@
-use crate::compose;
 use super::{airtable, schema, transform};
+use crate::compose;
 use serde_json::json;
 use std::convert::Infallible;
 use std::sync::Arc;
@@ -28,20 +28,24 @@ async fn fetch_invoice_for_id(id: String, ctx: Ctx) -> Result<impl Reply, Reject
     async fn f(ctx: &mut airtable::FetchCtx, id: String) -> Result<Invoice, transform::Error> {
         let params = airtable::request::QueryParam {
             key: "ID",
-            value: &id
+            value: &id,
         };
-        compose!(ctx, params, [
-                 Invoice::query,
-                 transform::into_records,
-                 transform::first,
-                 Invoice::create_one,
-        ])
+        compose!(
+            ctx,
+            params,
+            [
+                Invoice::query,
+                transform::into_records,
+                transform::first,
+                Invoice::create_one,
+            ]
+        )
     }
 
     let mut fetch_ctx = ctx.lock().await;
     match f(&mut fetch_ctx, id).await {
         Ok(invoice) => Ok(warp::reply::json(&invoice)),
-        Err(_) => Err(not_found())
+        Err(_) => Err(not_found()),
     }
 }
 
