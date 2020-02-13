@@ -1,4 +1,31 @@
+//!
+//! Every public function in this module should be...
+//! 1. async
+//! 2. take a ctx as a first parameter,
+//! 3. take the second parameter via ownership
+//! 4. return a `Result<_, Error>` which is defined below.
+
 use crate::airtable::FetchCtx;
+use crate::airtable::response;
+
+#[macro_export]
+macro_rules! compose {
+
+    ($c:expr, $e:expr, [ ]) => {
+        Ok($e)
+    };
+
+    ($c:expr, $e:expr, [ $t:expr ]) => {
+        $t($c, $e).await
+    };
+
+    ($c:expr, $e:expr, [ $t:expr, $($ts:expr,)* ]) => {
+        match $t($c, $e).await {
+            Ok(val) => compose!($c, val, [ $($ts,)* ]),
+            Err(e) => Err(e)
+        }
+    };
+}
 
 #[derive(Debug)]
 pub enum Error {
@@ -57,3 +84,8 @@ pub async fn money(_ctx: &FetchCtx, val: u32) -> Result<String, Error> {
 pub async fn split_lines(_ctx: &FetchCtx, val: String) -> Result<Vec<String>, Error> {
     Ok(val.split('\n').map(|s| s.to_owned()).collect())
 }
+
+pub async fn into_records<T>(_ctx: &FetchCtx, many: response::Many<T>) -> Result<Vec<response::One<T>>, Error> {
+    Ok(many.records)
+}
+

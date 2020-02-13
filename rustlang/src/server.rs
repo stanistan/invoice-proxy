@@ -1,3 +1,4 @@
+use crate::compose;
 use super::{airtable, schema, transform};
 use serde_json::json;
 use std::convert::Infallible;
@@ -24,17 +25,24 @@ fn with_ctx(ctx: Ctx) -> impl Filter<Extract = (Ctx,), Error = Infallible> + Clo
 /// Fetches an invoice by id.
 async fn fetch_invoice_for_id(id: String, ctx: Ctx) -> Result<impl Reply, Rejection> {
     use schema::Invoice;
-
-    let mut fetch_ctx = ctx.lock().await;
-    if let Ok(fetched) = Invoice::query(&mut fetch_ctx, "ID", &id).await {
-        if let Ok(first) = transform::first(&mut fetch_ctx, fetched.records).await {
-            if let Ok(i) = Invoice::create_one(&mut fetch_ctx, first).await {
-                return Ok(warp::reply::json(&i));
-            }
-        }
+    async fn f(ctx: &mut airtable::FetchCtx, id: String) -> Result<Invoice, transform::Error> {
+        let params = airtable::request::QueryParam {
+            key: "ID",
+            value: &id
+        };
+        compose!(ctx, params, [
+                 Invoice::query,
+                 transform::into_records,
+                 transform::first,
+                 Invoice::create_one,
+        ])
     }
 
-    Err(not_found())
+    let mut fetch_ctx = ctx.lock().await;
+    match f(&mut fetch_ctx, id).await {
+        Ok(invoice) => Ok(warp::reply::json(&invoice)),
+        Err(_) => Err(not_found())
+    }
 }
 
 /// Shows the stats for the cache of the `FetchCtx`.
@@ -68,14 +76,17 @@ pub(crate) async fn start(
         .and(warp::get())
         .and(with_ctx(ctx.clone()))
         .and_then(fetch_invoice_for_id);
+
     let cache_stats = warp::path!("cache" / "stats")
         .and(warp::get())
         .and(with_ctx(ctx.clone()))
         .and_then(show_ctx_cache_stats);
+
     let cache_clear = warp::path!("cache" / "clear")
         .and(warp::get())
         .and(with_ctx(ctx.clone()))
         .and_then(clear_ctx_cache);
+
     let router = get_invoice.or(cache_stats).or(cache_clear);
 
     warp::serve(router).run(([127, 0, 0, 1], port)).await;

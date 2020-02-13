@@ -5,14 +5,6 @@
 #[macro_export]
 macro_rules! gen_airtable_schema {
 
-    (@compose $c:expr, $e:expr, [ $($t:expr,)* ]) => {
-        {
-            let val = $e;
-            $(let val = $t($c, val).await?;)*
-            val
-        }
-    };
-
     (
         @gen $(
             $ns:ident, $ns_name:expr, $name:expr, $mapped_name:ident [ $(
@@ -21,7 +13,8 @@ macro_rules! gen_airtable_schema {
         )*
     ) => {
 
-        use crate::airtable::FetchCtx;
+        use crate::airtable::{FetchCtx, *};
+        use crate::compose;
 
         $(
             pub mod $ns {
@@ -93,7 +86,7 @@ macro_rules! gen_airtable_schema {
             /// Given a typed API response, create the fully hydrated `Mapped` resource.
             pub async fn create_one(ctx: &mut FetchCtx, one: $ns::One) -> Result<Self,  Error> {
                 Ok(Self {
-                    $($field_name: gen_airtable_schema!(@compose ctx, one.fields.$field_name, [ $($t,)* ])),*
+                    $($field_name: compose!(ctx, one.fields.$field_name, [ $($t,)* ])?),*
                 })
             }
 
@@ -105,8 +98,8 @@ macro_rules! gen_airtable_schema {
                 Ok(result)
             }
 
-            pub async fn query<T: AsRef<str>>(ctx: &mut FetchCtx, field: T, value: T) -> Result<$ns::Many, Error> {
-                ctx.fetch_query($ns::NAME, field.as_ref(), value.as_ref()).await
+            pub async fn query(ctx: &mut FetchCtx, p: request::QueryParam<'_, '_>) -> Result<$ns::Many, Error> {
+                ctx.fetch_query($ns::NAME, &p.key, &p.value).await
             }
 
         }
