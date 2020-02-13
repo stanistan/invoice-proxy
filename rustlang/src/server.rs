@@ -1,4 +1,4 @@
-use super::{airtable, schema};
+use super::{airtable, schema, transform};
 use serde_json::json;
 use std::convert::Infallible;
 use std::sync::Arc;
@@ -23,12 +23,14 @@ fn with_ctx(ctx: Ctx) -> impl Filter<Extract = (Ctx,), Error = Infallible> + Clo
 
 /// Fetches an invoice by id.
 async fn fetch_invoice_for_id(id: String, ctx: Ctx) -> Result<impl Reply, Rejection> {
-    use schema::invoice::one::*;
+    use schema::Invoice;
 
     let mut fetch_ctx = ctx.lock().await;
-    if let Ok(invoice) = query(&mut fetch_ctx, "ID", &id).await {
-        if let Ok(invoice) = map(&mut fetch_ctx, invoice).await {
-            return Ok(warp::reply::json(&invoice));
+    if let Ok(fetched) = Invoice::query(&mut fetch_ctx, "ID", &id).await {
+        if let Ok(first) = transform::first(&mut fetch_ctx, fetched.records).await {
+            if let Ok(i) = Invoice::create_one(&mut fetch_ctx, first).await {
+                return Ok(warp::reply::json(&i));
+            }
         }
     }
 

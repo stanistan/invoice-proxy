@@ -18,8 +18,8 @@ gen_airtable_schema! {
         "Rate" => fn rate(u32) -> u32 { copy },
         "Unit" => fn unit(IDs) -> String {
             first,
-            invoice_rate_unit::one::get,
-            invoice_rate_unit::one::map,
+            InvoiceUnit::fetch_one,
+            InvoiceUnit::create_one,
             invoice_rate_unit::get_name
         },
     }
@@ -31,8 +31,8 @@ gen_airtable_schema! {
         "Amount" => fn amount(u32) -> String { money },
         "Invoice Rate" => fn rate(IDs) -> InvoiceRate {
             first,
-            invoice_item_rate::one::get,
-            invoice_item_rate::one::map
+            InvoiceRate::fetch_one,
+            InvoiceRate::create_one
         },
     }
 
@@ -60,17 +60,17 @@ gen_airtable_schema! {
         "Total Amount" => fn total(u32) -> String { money },
         "From" => fn from(IDs) -> InvoiceFrom {
             first,
-            invoice_from::one::get,
-            invoice_from::one::map
+            InvoiceFrom::fetch_one,
+            InvoiceFrom::create_one
         },
         "Client" => fn client(IDs) -> InvoiceClient {
             first,
-            invoice_client::one::get,
-            invoice_client::one::map
+            InvoiceClient::fetch_one,
+            InvoiceClient::create_one
         },
         "Invoice Item" => fn items(IDs) -> Vec<InvoiceItem> {
-            invoice_item::many::get,
-            invoice_item::many::map
+            InvoiceItem::fetch_many,
+            InvoiceItem::create_many
         },
     }
 

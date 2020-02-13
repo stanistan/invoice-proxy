@@ -1,17 +1,18 @@
 ///
 /// Generates type definitions for a specific airtable record type,
-/// in a module... the structs are built to be deserializable
-///
-/// This will end up providing built in types and functions:
-///
-/// - `module::NAME` - the table name of the Airtable base
-/// - `module::Fields` - a struct defining the fields of `NAME`
-/// - `module::One` - a struct for a single record with `fields: Fields`
-/// - `module::Many` - a struct for many `records` (for a mget), of `One`
-/// - `module::get_one()` - a function to get `One` record
+/// in a module... the structs are built to be deserializable.
 ///
 #[macro_export]
 macro_rules! gen_airtable_schema {
+
+    (@compose $c:expr, $e:expr, [ $($t:expr,)* ]) => {
+        {
+            let val = $e;
+            $(let val = $t($c, val).await?;)*
+            val
+        }
+    };
+
     (
         @gen $(
             $ns:ident, $ns_name:expr, $name:expr, $mapped_name:ident [ $(
@@ -19,6 +20,9 @@ macro_rules! gen_airtable_schema {
             )*], $({ $($tokens:tt)* })?
         )*
     ) => {
+
+        use crate::airtable::FetchCtx;
+
         $(
             pub mod $ns {
                 #![doc = "This namespace `"]
@@ -28,7 +32,6 @@ macro_rules! gen_airtable_schema {
 
                 use serde::*;
                 use serde_json::Value;
-                use crate::airtable::FetchCtx;
                 use super::*;
 
                 /// The table name of this airtable table.
@@ -59,67 +62,8 @@ macro_rules! gen_airtable_schema {
                 /// [`airtable::response::Many`](../airtable/response/struct.Many.html)
                 pub type Many = crate::airtable::response::Many<Fields>;
 
-                /// This module contains functions that operate on single items.
-                pub mod one {
-
-                    use super::*;
-
-                    /// Get a single typed record via the `FetchCtx`.
-                    pub async fn get<T: AsRef<str>>(ctx: &mut FetchCtx, id: T) -> Result<One, Error> {
-                        ctx.fetch_id(NAME, id.as_ref()).await
-                    }
-
-                    /// Get a signle _dynamic_ JSON record via the `FetchCtx`.
-                    pub async fn get_dynamic(ctx: &mut FetchCtx, id: &str) -> Result<Value, Error> {
-                        ctx.fetch_id(NAME, id.as_ref()).await
-                    }
-
-                    #[allow(clippy::let_and_return)]
-                    /// Given a typed API response, create the fully hydrated `Mapped` resource.
-                    pub async fn map(ctx: &mut FetchCtx, one: One) -> Result<Mapped,  Error> {
-                        Ok(Mapped {
-                            $($field_name: {
-                                let val = one.fields.$field_name;
-                                $( let val = $t(ctx, val).await?; )*
-                                    val
-                            }),*
-                        })
-                    }
-
-                    pub async fn query<T: AsRef<str>>(ctx: &mut FetchCtx, field: T, value: T) -> Result<One, Error> {
-                        let results = many::query(ctx, field, value).await?;
-                        first(ctx, results.records).await
-                    }
-
-                }
-
-                /// This module contains functions that operate on many items.
-                pub mod many {
-                    use super::*;
-
-                    pub async fn get<T: AsRef<str>>(ctx: &mut FetchCtx, ids: Vec<T>) -> Result<Vec<One>, Error> {
-                        let mut result = Vec::with_capacity(ids.len());
-                        for id in ids {
-                            result.push(one::get(ctx, id).await?);
-                        }
-                        Ok(result)
-                    }
-
-                    pub async fn map(ctx: &mut FetchCtx, many: Vec<One>) -> Result<Vec<Mapped>, Error> {
-                        let mut result = Vec::with_capacity(many.len());
-                        for one in many {
-                            result.push(one::map(ctx, one).await?);
-                        }
-                        Ok(result)
-                    }
-
-                    pub async fn query<T: AsRef<str>>(ctx: &mut FetchCtx, field: T, value: T) -> Result<Many, Error> {
-                        ctx.fetch_query(NAME, field.as_ref(), value.as_ref()).await
-                    }
-
-                }
-
-                // dump in arbitrary tokens
+                // dump in arbitrary tokens, like any functions that were added to this module
+                // after stuff has been defined.
                 $($($tokens)*)?
             }
 
@@ -128,6 +72,44 @@ macro_rules! gen_airtable_schema {
         #[doc = $ns_name]
         #[doc = ":: Mapped`."]
         pub type $mapped_name = $ns::Mapped;
+
+        #[allow(unused)]
+        impl $mapped_name {
+
+            pub async fn fetch_many<T: AsRef<str>>(ctx: &mut FetchCtx, ids: Vec<T>) -> Result<Vec<$ns::One>, Error> {
+                let mut fetched = Vec::with_capacity(ids.len());
+                for id in ids {
+                    fetched.push(Self::fetch_one(ctx, id).await?);
+                }
+                Ok(fetched)
+            }
+
+            /// Get a single typed record via the `FetchCtx`.
+            pub async fn fetch_one<T: AsRef<str>>(ctx: &mut FetchCtx, id: T) -> Result<$ns::One, Error> {
+                ctx.fetch_id($ns::NAME, id.as_ref()).await
+            }
+
+            #[allow(clippy::let_and_return)]
+            /// Given a typed API response, create the fully hydrated `Mapped` resource.
+            pub async fn create_one(ctx: &mut FetchCtx, one: $ns::One) -> Result<Self,  Error> {
+                Ok(Self {
+                    $($field_name: gen_airtable_schema!(@compose ctx, one.fields.$field_name, [ $($t,)* ])),*
+                })
+            }
+
+            pub async fn create_many(ctx: &mut FetchCtx, many: Vec<$ns::One>) -> Result<Vec<Self>, Error> {
+                let mut result = Vec::with_capacity(many.len());
+                for one in many {
+                    result.push(Self::create_one(ctx, one).await?);
+                }
+                Ok(result)
+            }
+
+            pub async fn query<T: AsRef<str>>(ctx: &mut FetchCtx, field: T, value: T) -> Result<$ns::Many, Error> {
+                ctx.fetch_query($ns::NAME, field.as_ref(), value.as_ref()).await
+            }
+
+        }
 
         )*
     };
