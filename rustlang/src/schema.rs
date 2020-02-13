@@ -1,4 +1,5 @@
 use super::*;
+use crate::error::Error;
 use crate::transform::*;
 
 gen_airtable_schema! {

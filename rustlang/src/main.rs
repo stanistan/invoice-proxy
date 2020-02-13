@@ -1,4 +1,5 @@
 mod airtable;
+mod error;
 mod gen_schema;
 mod schema;
 mod server;
@@ -6,7 +7,6 @@ mod transform;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-
     // make sure we can airtable, yo
     let ctx = airtable::FetchCtx::from_env()?;
 

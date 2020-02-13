@@ -7,6 +7,12 @@
 
 use crate::airtable::response;
 use crate::airtable::FetchCtx;
+use crate::error::Error;
+
+pub type MaybeBool = Option<bool>;
+pub type IDs = Vec<String>;
+
+type Result<T> = std::result::Result<T, Error>;
 
 #[macro_export]
 macro_rules! compose {
@@ -27,50 +33,33 @@ macro_rules! compose {
     };
 }
 
-#[derive(Debug)]
-pub enum Error {
-    Map(&'static str),
-    Req(reqwest::Error),
-    SerdeTransform(serde_json::error::Error),
-    UrlParser(url::ParseError),
-}
-
-impl std::fmt::Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
-        match self {
-            Error::Map(ref e) => write!(f, "Mapping error: {}", e),
-            Error::Req(ref e) => write!(f, "Reqwest error: {}", e),
-            Error::SerdeTransform(ref e) => write!(f, "Deserialization error: {}", e),
-            Error::UrlParser(ref e) => write!(f, "Url formatting error: {}", e),
+macro_rules! pure_fn {
+    (
+        $name: ident $(<$T:ident $(: $tokens:tt)?>)?
+        (
+            $arg_name:ident : $arg_type:ty
+        )
+        -> $ret:ty { $($body:tt)* }
+    ) => {
+        pub async fn $name $(<$T $(: $tokens)?>)?(_: &FetchCtx, $arg_name: $arg_type) -> Result<$ret> {
+            $($body)*
         }
     }
 }
 
-impl std::error::Error for Error {}
-
-pub type MaybeBool = Option<bool>;
-pub type IDs = Vec<String>;
-
-pub async fn copy<T: Copy>(_ctx: &FetchCtx, t: T) -> Result<T, Error> {
+pure_fn!(copy<T: Copy>(t: T) -> T {
     Ok(t)
-}
+});
 
-pub async fn id<T: Sized>(_ctx: &FetchCtx, t: T) -> Result<T, Error> {
+pure_fn!(id<T: Sized>(t: T) -> T {
     Ok(t)
-}
+});
 
-pub async fn first<T>(_ctx: &FetchCtx, mut vec: Vec<T>) -> Result<T, Error> {
-    match vec.get(0) {
-        None => Err(Error::Map("Cannot get the first item from an empty vec")),
-        _ => Ok(vec.swap_remove(0)),
-    }
-}
-
-pub async fn force_bool(_ctx: &FetchCtx, val: Option<bool>) -> Result<bool, Error> {
+pure_fn!(force_bool(val: MaybeBool) -> bool {
     Ok(val.unwrap_or(false))
-}
+});
 
-pub async fn money(_ctx: &FetchCtx, val: u32) -> Result<String, Error> {
+pure_fn!(money(val: u32) -> String {
     // FIXME: this doesn't do anything with decimals :(
     use num_format::{Locale, WriteFormatted};
     let mut buf = String::from("$");
@@ -79,15 +68,23 @@ pub async fn money(_ctx: &FetchCtx, val: u32) -> Result<String, Error> {
     }
     buf.push_str(".00");
     Ok(buf)
-}
+});
 
-pub async fn split_lines(_ctx: &FetchCtx, val: String) -> Result<Vec<String>, Error> {
+pure_fn!(split_lines(val: String) -> Vec<String> {
     Ok(val.split('\n').map(|s| s.to_owned()).collect())
+});
+
+fn get_first<T>(mut vec: Vec<T>) -> Result<T> {
+    match vec.get(0) {
+        None => Err(Error::Map("Cannot get the first item from an empty vec")),
+        _ => Ok(vec.swap_remove(0)),
+    }
 }
 
-pub async fn into_records<T>(
-    _ctx: &FetchCtx,
-    many: response::Many<T>,
-) -> Result<Vec<response::One<T>>, Error> {
+pure_fn!(first<T>(vec: Vec<T>) -> T {
+    get_first(vec)
+});
+
+pure_fn!(into_records<T>(many: response::Many<T>) -> Vec<response::One<T>> {
     Ok(many.records)
-}
+});

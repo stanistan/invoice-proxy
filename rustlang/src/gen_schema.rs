@@ -82,7 +82,6 @@ macro_rules! gen_airtable_schema {
                 ctx.fetch_id($ns::NAME, id.as_ref()).await
             }
 
-            #[allow(clippy::let_and_return)]
             /// Given a typed API response, create the fully hydrated `Mapped` resource.
             pub async fn create_one(ctx: &mut FetchCtx, one: $ns::One) -> Result<Self,  Error> {
                 Ok(Self {
@@ -90,6 +89,7 @@ macro_rules! gen_airtable_schema {
                 })
             }
 
+            /// Given a typed API response, creates _many_ hydrated `Mapped` resources.
             pub async fn create_many(ctx: &mut FetchCtx, many: Vec<$ns::One>) -> Result<Vec<Self>, Error> {
                 let mut result = Vec::with_capacity(many.len());
                 for one in many {
@@ -98,6 +98,7 @@ macro_rules! gen_airtable_schema {
                 Ok(result)
             }
 
+            /// Query the API (not ID lookup), based on a QueryParam object.
             pub async fn query(ctx: &mut FetchCtx, p: request::QueryParam<'_, '_>) -> Result<$ns::Many, Error> {
                 ctx.fetch_query($ns::NAME, &p.key, &p.value).await
             }

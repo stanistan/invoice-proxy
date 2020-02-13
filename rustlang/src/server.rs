@@ -1,5 +1,7 @@
-use super::{airtable, schema, transform};
 use crate::compose;
+use crate::error::Error;
+use crate::{airtable, schema, transform};
+
 use serde_json::json;
 use std::convert::Infallible;
 use std::sync::Arc;
@@ -25,7 +27,8 @@ fn with_ctx(ctx: Ctx) -> impl Filter<Extract = (Ctx,), Error = Infallible> + Clo
 /// Fetches an invoice by id.
 async fn fetch_invoice_for_id(id: String, ctx: Ctx) -> Result<impl Reply, Rejection> {
     use schema::Invoice;
-    async fn f(ctx: &mut airtable::FetchCtx, id: String) -> Result<Invoice, transform::Error> {
+
+    async fn f(ctx: &mut airtable::FetchCtx, id: String) -> Result<Invoice, Error> {
         let params = airtable::request::QueryParam {
             key: "ID",
             value: &id,

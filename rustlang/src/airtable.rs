@@ -1,4 +1,4 @@
-use super::transform::Error;
+use crate::error::Error;
 use reqwest::Url;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
