@@ -1,4 +1,5 @@
 use super::*;
+use crate::airtable::request::*;
 use crate::error::Error;
 use crate::transform::*;
 
@@ -15,9 +16,7 @@ gen_airtable_schema! {
         "Notes" => fn notes(Option<String>) -> Option<String> { id },
         "Rate" => fn rate(u32) -> u32 { copy },
         "Unit" => fn unit(IDs) -> String {
-            first,
-            InvoiceUnit::fetch_one,
-            InvoiceUnit::create_one,
+            InvoiceUnit::fetch_and_create_first,
             invoice_rate_unit::get_name
         },
     }
@@ -28,9 +27,7 @@ gen_airtable_schema! {
         "Quantity" => fn quantity(u32) -> u32 { copy },
         "Amount" => fn amount(u32) -> String { money },
         "Invoice Rate" => fn rate(IDs) -> InvoiceRate {
-            first,
-            InvoiceRate::fetch_one,
-            InvoiceRate::create_one
+            InvoiceRate::fetch_and_create_first
         },
     }
 
@@ -57,18 +54,13 @@ gen_airtable_schema! {
         "Paid?" => fn was_paid(MaybeBool) -> bool { force_bool },
         "Total Amount" => fn total(u32) -> String { money },
         "From" => fn from(IDs) -> InvoiceFrom {
-            first,
-            InvoiceFrom::fetch_one,
-            InvoiceFrom::create_one
+            InvoiceFrom::fetch_and_create_first
         },
         "Client" => fn client(IDs) -> InvoiceClient {
-            first,
-            InvoiceClient::fetch_one,
-            InvoiceClient::create_one
+            InvoiceClient::fetch_and_create_first
         },
         "Invoice Item" => fn items(IDs) -> Vec<InvoiceItem> {
-            InvoiceItem::fetch_many,
-            InvoiceItem::create_many
+            InvoiceItem::fetch_and_create_many
         },
     }
 

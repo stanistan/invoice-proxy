@@ -5,8 +5,7 @@
 //! 3. take the second parameter via ownership
 //! 4. return a `Result<_, Error>` which is defined below.
 
-use crate::airtable::response;
-use crate::airtable::FetchCtx;
+use crate::airtable::{response, FetchCtx};
 use crate::error::Error;
 
 pub type MaybeBool = Option<bool>;

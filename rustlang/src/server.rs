@@ -26,18 +26,16 @@ fn with_ctx(ctx: Ctx) -> impl Filter<Extract = (Ctx,), Error = Infallible> + Clo
 
 /// Fetches an invoice by id.
 async fn fetch_invoice_for_id(id: String, ctx: Ctx) -> Result<impl Reply, Rejection> {
+    use airtable::request::{query, QueryParam};
     use schema::Invoice;
 
     async fn f(ctx: &mut airtable::FetchCtx, id: String) -> Result<Invoice, Error> {
-        let params = airtable::request::QueryParam {
-            key: "ID",
-            value: &id,
-        };
+        let params: QueryParam<Invoice> = QueryParam::new("ID", &id);
         compose!(
             ctx,
             params,
             [
-                Invoice::query,
+                query,
                 transform::into_records,
                 transform::first,
                 Invoice::create_one,

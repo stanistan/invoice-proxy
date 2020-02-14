@@ -146,10 +146,56 @@ impl FetchCtx {
     }
 }
 
+pub trait Table {
+    const NAME: &'static str;
+    type Fields: DeserializeOwned;
+}
+
 pub mod request {
-    pub struct QueryParam<'a, 'b> {
-        pub key: &'a str,
-        pub value: &'b str,
+
+    use super::response::{Many, One};
+    use super::{Error, FetchCtx, Table};
+    use std::marker::PhantomData;
+
+    pub struct QueryParam<'a, 'b, T> {
+        pub(super) key: &'a str,
+        pub(super) value: &'b str,
+        _phantom: PhantomData<T>,
+    }
+
+    impl<'a, 'b, T> QueryParam<'a, 'b, T> {
+        pub fn new(key: &'a str, value: &'b str) -> Self {
+            Self {
+                key,
+                value,
+                _phantom: PhantomData,
+            }
+        }
+    }
+
+    pub async fn query<U: Table>(
+        ctx: &mut FetchCtx,
+        p: QueryParam<'_, '_, U>,
+    ) -> Result<Many<U::Fields>, Error> {
+        ctx.fetch_query(U::NAME, &p.key, &p.value).await
+    }
+
+    pub async fn fetch_one<T: AsRef<str>, U: Table>(
+        ctx: &mut FetchCtx,
+        id: T,
+    ) -> Result<One<U::Fields>, Error> {
+        ctx.fetch_id(U::NAME, id.as_ref()).await
+    }
+
+    pub async fn fetch_many<T: AsRef<str>, U: Table>(
+        ctx: &mut FetchCtx,
+        ids: Vec<T>,
+    ) -> Result<Vec<One<U::Fields>>, Error> {
+        let mut fetched = Vec::with_capacity(ids.len());
+        for id in ids {
+            fetched.push(fetch_one::<_, U>(ctx, id).await?);
+        }
+        Ok(fetched)
     }
 }
 
