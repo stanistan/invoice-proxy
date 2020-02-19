@@ -157,45 +157,71 @@ pub mod request {
     use super::{Error, FetchCtx, Table};
     use std::marker::PhantomData;
 
-    pub struct QueryParam<'a, 'b, T> {
-        pub(super) key: &'a str,
-        pub(super) value: &'b str,
-        _phantom: PhantomData<T>,
+    pub enum Param<T> {
+        Query {
+            key: String,
+            value: String,
+            _table: PhantomData<T>,
+        },
+        IDs {
+            ids: Vec<String>,
+            _table: PhantomData<T>,
+        },
     }
 
-    impl<'a, 'b, T> QueryParam<'a, 'b, T> {
-        pub fn new(key: &'a str, value: &'b str) -> Self {
-            Self {
+    impl<T: Table> Param<T> {
+        pub fn new_query(key: String, value: String) -> Self {
+            Param::Query {
                 key,
                 value,
-                _phantom: PhantomData,
+                _table: PhantomData,
+            }
+        }
+
+        pub fn new_id(ids: Vec<String>) -> Self {
+            Param::IDs {
+                ids,
+                _table: PhantomData,
             }
         }
     }
 
-    pub async fn query<U: Table>(
+    pub async fn one<U: Table>(
         ctx: &mut FetchCtx,
-        p: QueryParam<'_, '_, U>,
-    ) -> Result<Many<U::Fields>, Error> {
-        ctx.fetch_query(U::NAME, &p.key, &p.value).await
-    }
-
-    pub async fn fetch_one<T: AsRef<str>, U: Table>(
-        ctx: &mut FetchCtx,
-        id: T,
+        param: Param<U>,
     ) -> Result<One<U::Fields>, Error> {
-        ctx.fetch_id(U::NAME, id.as_ref()).await
+        match param {
+            Param::Query { key, value, .. } => {
+                let result: Many<U::Fields> = ctx.fetch_query(U::NAME, &key, &value).await?;
+                crate::transform::first(ctx, result.records).await
+            }
+            Param::IDs { ids, .. } => {
+                if let Some(id) = ids.first() {
+                    ctx.fetch_id(U::NAME, &id).await
+                } else {
+                    Err(Error::Map("missing ids at param construction"))
+                }
+            }
+        }
     }
 
-    pub async fn fetch_many<T: AsRef<str>, U: Table>(
+    pub async fn many<U: Table>(
         ctx: &mut FetchCtx,
-        ids: Vec<T>,
+        param: Param<U>,
     ) -> Result<Vec<One<U::Fields>>, Error> {
-        let mut fetched = Vec::with_capacity(ids.len());
-        for id in ids {
-            fetched.push(fetch_one::<_, U>(ctx, id).await?);
+        match param {
+            Param::Query { key, value, .. } => {
+                let result: Many<U::Fields> = ctx.fetch_query(U::NAME, &key, &value).await?;
+                Ok(result.records)
+            }
+            Param::IDs { ids, .. } => {
+                let mut output = Vec::with_capacity(ids.len());
+                for id in ids {
+                    output.push(ctx.fetch_id(U::NAME, &id).await?);
+                }
+                Ok(output)
+            }
         }
-        Ok(fetched)
     }
 }
 

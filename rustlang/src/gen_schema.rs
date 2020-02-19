@@ -58,9 +58,13 @@ macro_rules! gen_airtable_schema {
         #[allow(unused)]
         impl $mapped_name {
 
+            fn new_ids_params(ids: Vec<String>) -> Param<Self> {
+                Param::new_id(ids)
+            }
+
             pub async fn create_one(ctx: &mut FetchCtx, one: One<$ns::Fields>) -> Result<Self,  Error> {
                 Ok(Self {
-                    $($field_name: compose!(ctx, one.fields.$field_name, [ $($t,)* ])?),*
+                    $($field_name: compose!(ctx, one.fields.$field_name, [ $($t),* ])?),*
                 })
             }
 
@@ -72,12 +76,14 @@ macro_rules! gen_airtable_schema {
                 Ok(result)
             }
 
-            pub async fn fetch_and_create_first<T: AsRef<str>>(ctx: &mut FetchCtx, ids: Vec<T>) -> Result<Self, Error> {
-                compose!(ctx, ids, [ first, fetch_one::<_, Self>, Self::create_one, ])
+            pub async fn fetch_and_create_first(ctx: &mut FetchCtx, ids: Vec<String>) -> Result<Self, Error> {
+                let params = Self::new_ids_params(ids);
+                compose!(ctx, params, [ one, Self::create_one ])
             }
 
-            pub async fn fetch_and_create_many<T: AsRef<str>>(ctx: &mut FetchCtx, ids: Vec<T>) -> Result<Vec<Self>, Error> {
-                compose!(ctx, ids, [ fetch_many::<_, Self>, Self::create_many, ])
+            pub async fn fetch_and_create_many(ctx: &mut FetchCtx, ids: Vec<String>) -> Result<Vec<Self>, Error> {
+                let params = Self::new_ids_params(ids);
+                compose!(ctx, params, [ many, Self::create_many ])
             }
 
         }

@@ -1,6 +1,6 @@
 use crate::compose;
 use crate::error::Error;
-use crate::{airtable, schema, transform};
+use crate::{airtable, schema};
 
 use serde_json::json;
 use std::convert::Infallible;
@@ -26,21 +26,12 @@ fn with_ctx(ctx: Ctx) -> impl Filter<Extract = (Ctx,), Error = Infallible> + Clo
 
 /// Fetches an invoice by id.
 async fn fetch_invoice_for_id(id: String, ctx: Ctx) -> Result<impl Reply, Rejection> {
-    use airtable::request::{query, QueryParam};
+    use airtable::request::{one, Param};
     use schema::Invoice;
 
     async fn f(ctx: &mut airtable::FetchCtx, id: String) -> Result<Invoice, Error> {
-        let params: QueryParam<Invoice> = QueryParam::new("ID", &id);
-        compose!(
-            ctx,
-            params,
-            [
-                query,
-                transform::into_records,
-                transform::first,
-                Invoice::create_one,
-            ]
-        )
+        let params: Param<Invoice> = Param::new_query("ID".to_string(), id);
+        compose!(ctx, params, [one, Invoice::create_one])
     }
 
     let mut fetch_ctx = ctx.lock().await;

@@ -1,11 +1,13 @@
 //!
 //! Every public function in this module should be...
+//!
 //! 1. async
 //! 2. take a ctx as a first parameter,
 //! 3. take the second parameter via ownership
 //! 4. return a `Result<_, Error>` which is defined below.
+//!
 
-use crate::airtable::{response, FetchCtx};
+use crate::airtable::FetchCtx;
 use crate::error::Error;
 
 pub type MaybeBool = Option<bool>;
@@ -22,9 +24,9 @@ macro_rules! compose {
         $t($c, $e).await
     };
 
-    ($c:expr, $e:expr, [ $t:expr, $($ts:expr,)* ]) => {
+    ($c:expr, $e:expr, [ $t:expr, $($ts:expr),* ]) => {
         match $t($c, $e).await {
-            Ok(val) => compose!($c, val, [ $($ts,)* ]),
+            Ok(val) => compose!($c, val, [ $($ts),* ]),
             Err(e) => Err(e)
         }
     };
@@ -81,8 +83,4 @@ fn get_first<T>(mut vec: Vec<T>) -> Result<T, Error> {
 
 pure_fn!(first<T>(vec: Vec<T>) -> T {
     get_first(vec)
-});
-
-pure_fn!(into_records<T>(many: response::Many<T>) -> Vec<response::One<T>> {
-    Ok(many.records)
 });
