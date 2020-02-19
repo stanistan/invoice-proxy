@@ -93,11 +93,13 @@ macro_rules! gen_airtable_schema {
 
     (
         $(
-            mod $ns:ident ($name: expr) as $mapped_name:ident {
+            $ns:ident ($name: expr)
+                as $mapped_name:ident {
                     $(
                         $k:expr => fn $fn:ident ($ft:ty) -> $t_ft:ty { $($tfs:expr),+ },
-                    )*
-            } $({ $($tokens:tt)* })?
+                        )*
+                }
+                $(, mod { $($tokens:tt)* })?;
         )*
     ) => {
         gen_airtable_schema! {
