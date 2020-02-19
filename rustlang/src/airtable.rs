@@ -209,19 +209,19 @@ pub mod request {
         ctx: &mut FetchCtx,
         param: Param<U>,
     ) -> Result<Vec<One<U::Fields>>, Error> {
-        match param {
+        Ok(match param {
             Param::Query { key, value, .. } => {
                 let result: Many<U::Fields> = ctx.fetch_query(U::NAME, &key, &value).await?;
-                Ok(result.records)
+                result.records
             }
             Param::IDs { ids, .. } => {
                 let mut output = Vec::with_capacity(ids.len());
                 for id in ids {
                     output.push(ctx.fetch_id(U::NAME, &id).await?);
                 }
-                Ok(output)
+                output
             }
-        }
+        })
     }
 }
 
