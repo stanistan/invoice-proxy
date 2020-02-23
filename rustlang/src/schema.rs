@@ -69,6 +69,18 @@ gen_airtable_schema! {
             "Invoice Item" => fn items(IDs) -> Vec<InvoiceItem> {
                 InvoiceItem::fetch_and_create_many
             },
+        },
+        mod {
+            pure_fn!(id_query(id: String) -> Param<Invoice> {
+                Ok(Param::new_query("ID".to_string(), id))
+            });
+        },
+        endpoints {
+            query(String) -> Invoice {
+                id_query,
+                one,
+                Invoice::create_one
+            }
         };
 
 }

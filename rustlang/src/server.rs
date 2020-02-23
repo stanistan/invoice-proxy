@@ -1,12 +1,9 @@
-use crate::compose;
-use crate::error::Error;
-use crate::{airtable, schema};
+use crate::airtable;
 
 use serde_json::json;
 use std::convert::Infallible;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use warp::reject::not_found;
 use warp::{Filter, Rejection, Reply};
 
 /// The context we pass to our routes is
@@ -16,48 +13,51 @@ use warp::{Filter, Rejection, Reply};
 /// It needs to be in a mutex is because we have
 /// a request cache that we read from, write to
 /// for this server, which, is obviously mutable.
-type Ctx = Arc<Mutex<airtable::FetchCtx>>;
+pub(crate) type Ctx = Arc<Mutex<airtable::FetchCtx>>;
 
 /// This function creates a filter that adds a context
 /// to all the endpoints that need it.
-fn with_ctx(ctx: Ctx) -> impl Filter<Extract = (Ctx,), Error = Infallible> + Clone {
+pub(crate) fn with_ctx(ctx: Ctx) -> impl Filter<Extract = (Ctx,), Error = Infallible> + Clone {
     warp::any().map(move || ctx.clone())
 }
 
-/// Fetches an invoice by id.
-async fn fetch_invoice_for_id(id: String, ctx: Ctx) -> Result<impl Reply, Rejection> {
-    use airtable::request::{one, Param};
-    use schema::Invoice;
+pub mod ctx_cache {
+    use super::*;
 
-    async fn f(ctx: &mut airtable::FetchCtx, id: String) -> Result<Invoice, Error> {
-        let params: Param<Invoice> = Param::new_query("ID".to_string(), id);
-        compose!(ctx, params, [one, Invoice::create_one])
+    /// Shows the stats for the cache of the `FetchCtx`.
+    async fn show(ctx: Ctx) -> Result<impl Reply, Rejection> {
+        let ctx = ctx.lock().await;
+        let (hits, misses) = ctx.cache.stats();
+        Ok(warp::reply::json(&json!({
+            "hits": hits,
+            "misses": misses,
+        })))
     }
 
-    let mut fetch_ctx = ctx.lock().await;
-    match f(&mut fetch_ctx, id).await {
-        Ok(invoice) => Ok(warp::reply::json(&invoice)),
-        Err(_) => Err(not_found()),
+    /// Clears the cache for the `FetchCtx`.
+    async fn clear(ctx: Ctx) -> Result<impl Reply, Rejection> {
+        {
+            let mut ctx = ctx.lock().await;
+            ctx.cache.clear();
+        }
+        show(ctx).await
     }
-}
 
-/// Shows the stats for the cache of the `FetchCtx`.
-async fn show_ctx_cache_stats(ctx: Ctx) -> Result<impl Reply, Rejection> {
-    let ctx = ctx.lock().await;
-    let (hits, misses) = ctx.cache.stats();
-    Ok(warp::reply::json(&json!({
-        "hits": hits,
-        "misses": misses,
-    })))
-}
+    pub fn route(
+        ctx: Ctx,
+    ) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+        let show_stats = warp::path!("cache" / "stats")
+            .and(warp::get())
+            .and(with_ctx(ctx.clone()))
+            .and_then(show);
 
-/// Clears the cache for the `FetchCtx`.
-async fn clear_ctx_cache(ctx: Ctx) -> Result<impl Reply, Rejection> {
-    {
-        let mut ctx = ctx.lock().await;
-        ctx.cache.clear();
+        let clear_stats = warp::path!("cache" / "clear")
+            .and(warp::get())
+            .and(with_ctx(ctx))
+            .and_then(clear);
+
+        show_stats.or(clear_stats)
     }
-    show_ctx_cache_stats(ctx).await
 }
 
 /// Starts serving the configured server at the given port.
@@ -68,22 +68,9 @@ pub(crate) async fn start(
     let ctx = Arc::new(Mutex::new(ctx));
 
     // build routes
-    let get_invoice = warp::path!("invoice" / String)
-        .and(warp::get())
-        .and(with_ctx(ctx.clone()))
-        .and_then(fetch_invoice_for_id);
+    let get_invoice = crate::schema::invoice::endpoints::route(ctx.clone());
 
-    let cache_stats = warp::path!("cache" / "stats")
-        .and(warp::get())
-        .and(with_ctx(ctx.clone()))
-        .and_then(show_ctx_cache_stats);
-
-    let cache_clear = warp::path!("cache" / "clear")
-        .and(warp::get())
-        .and(with_ctx(ctx.clone()))
-        .and_then(clear_ctx_cache);
-
-    let router = get_invoice.or(cache_stats).or(cache_clear);
+    let router = get_invoice.or(ctx_cache::route(ctx));
 
     warp::serve(router).run(([127, 0, 0, 1], port)).await;
     Ok(())
