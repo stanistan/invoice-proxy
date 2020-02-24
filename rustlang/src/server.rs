@@ -22,6 +22,7 @@ pub(crate) fn with_ctx(ctx: Ctx) -> impl Filter<Extract = (Ctx,), Error = Infall
 }
 
 pub mod ctx_cache {
+
     use super::*;
 
     /// Shows the stats for the cache of the `FetchCtx`.
@@ -46,17 +47,15 @@ pub mod ctx_cache {
     pub fn route(
         ctx: Ctx,
     ) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-        let show_stats = warp::path!("cache" / "stats")
-            .and(warp::get())
-            .and(with_ctx(ctx.clone()))
-            .and_then(show);
 
-        let clear_stats = warp::path!("cache" / "clear")
-            .and(warp::get())
-            .and(with_ctx(ctx))
-            .and_then(clear);
+        // GET /cache
+        let cache = warp::path("cache").and(warp::get());
 
-        show_stats.or(clear_stats)
+        // the endpoints
+        let show_stats = warp::path("stats").and(with_ctx(ctx.clone())).and_then(show);
+        let clear_stats = warp::path("clear").and(with_ctx(ctx)).and_then(clear);
+
+        cache.and(show_stats.or(clear_stats))
     }
 }
 
@@ -66,12 +65,7 @@ pub(crate) async fn start(
     port: u16,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let ctx = Arc::new(Mutex::new(ctx));
-
-    // build routes
-    let get_invoice = crate::schema::invoice::endpoints::route(ctx.clone());
-
-    let router = get_invoice.or(ctx_cache::route(ctx));
-
+    let router = crate::schema::route(ctx);
     warp::serve(router).run(([127, 0, 0, 1], port)).await;
     Ok(())
 }
