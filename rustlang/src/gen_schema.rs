@@ -1,4 +1,5 @@
-#[macro_export] macro_rules! build_route {
+#[macro_export]
+macro_rules! build_route {
     ($ctx:expr, [ ]) => {
         unimplemented!("Missing any defined endpoints")
     };
@@ -23,7 +24,8 @@
 /// Generates type definitions for a specific airtable record type,
 /// in a module... the structs are built to be deserializable.
 ///
-#[macro_export] macro_rules! gen_airtable_schema {
+#[macro_export]
+macro_rules! gen_airtable_schema {
     (
         @endpoints_route $ns:ident { $($_:tt),* }
     ) => {

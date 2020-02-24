@@ -15,6 +15,10 @@ use warp::{Filter, Rejection, Reply};
 /// for this server, which, is obviously mutable.
 pub(crate) type Ctx = Arc<Mutex<airtable::FetchCtx>>;
 
+pub(crate) fn wrap_ctx(ctx: airtable::FetchCtx) -> Ctx {
+    Arc::new(Mutex::new(ctx))
+}
+
 /// This function creates a filter that adds a context
 /// to all the endpoints that need it.
 pub(crate) fn with_ctx(ctx: Ctx) -> impl Filter<Extract = (Ctx,), Error = Infallible> + Clone {
@@ -44,28 +48,16 @@ pub mod ctx_cache {
         show(ctx).await
     }
 
-    pub fn route(
-        ctx: Ctx,
-    ) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-
+    pub fn route(ctx: Ctx) -> impl Filter<Extract = impl Reply, Error = Rejection> + Clone {
         // GET /cache
         let cache = warp::path("cache").and(warp::get());
 
         // the endpoints
-        let show_stats = warp::path("stats").and(with_ctx(ctx.clone())).and_then(show);
+        let show_stats = warp::path("stats")
+            .and(with_ctx(ctx.clone()))
+            .and_then(show);
         let clear_stats = warp::path("clear").and(with_ctx(ctx)).and_then(clear);
 
         cache.and(show_stats.or(clear_stats))
     }
-}
-
-/// Starts serving the configured server at the given port.
-pub(crate) async fn start(
-    ctx: airtable::FetchCtx,
-    port: u16,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let ctx = Arc::new(Mutex::new(ctx));
-    let router = crate::schema::route(ctx);
-    warp::serve(router).run(([127, 0, 0, 1], port)).await;
-    Ok(())
 }
