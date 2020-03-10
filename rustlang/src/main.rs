@@ -2,7 +2,7 @@ mod airtable;
 mod error;
 mod gen_schema;
 mod schema;
-mod server;
+mod ctx;
 mod transform;
 
 #[tokio::main]
@@ -19,7 +19,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // TODO: make this take a server address thing that we can parse
 
     // make our context async ready
-    let ctx = server::wrap_ctx(ctx);
+    let ctx = ctx::wrap_ctx(ctx);
 
     // grab the generated router
     let router = schema::route(ctx);

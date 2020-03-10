@@ -50,7 +50,7 @@ macro_rules! gen_airtable_schema {
         pub mod endpoints {
 
             use super::*;
-            use crate::server::{Ctx};
+            use crate::ctx::{Ctx};
             use warp::{Filter, Reply, Rejection};
 
             pub fn route(ctx: Ctx) -> impl Filter<Extract = impl Reply, Error = Rejection> + Clone {
@@ -60,7 +60,7 @@ macro_rules! gen_airtable_schema {
             $(pub mod $name {
 
                 use super::*;
-                use crate::server::with_ctx;
+                use crate::ctx::with_ctx;
 
                 pub fn route(ctx: Ctx) -> impl Filter<Extract = impl Reply, Error = Rejection> + Clone {
                     use warp::Filter;
@@ -165,9 +165,9 @@ macro_rules! gen_airtable_schema {
         )*  // end for each
 
         // a generated route for all of the endpoints created by the schema, yea i know, it cray.
-        pub fn route(ctx: crate::server::Ctx) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+        pub fn route(ctx: crate::ctx::Ctx) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
             use warp::Filter;
-            crate::build_route!(ctx, crate::server::ctx_cache::route(ctx.clone()), [
+            crate::build_route!(ctx, crate::ctx::ctx_cache::route(ctx.clone()), [
                 $( $(gen_airtable_schema!(@endpoints_route $ns { $($endpoints_tokens),* }))? )*
             ])
         }
