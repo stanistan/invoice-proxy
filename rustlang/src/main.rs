@@ -2,10 +2,10 @@ use std::net::SocketAddr;
 
 mod airtable;
 mod config;
-mod network;
 mod ctx;
 mod error;
 mod gen_schema;
+mod network;
 mod schema;
 mod transform;
 

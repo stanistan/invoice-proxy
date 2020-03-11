@@ -1,7 +1,7 @@
 use crate::error::Error;
+use crate::network::cache::{Cache, JSONResult};
 use reqwest::Url;
 use serde::de::DeserializeOwned;
-use crate::network::cache::{JSONResult, Cache};
 
 async fn fetch(client: reqwest::Client, url: Url, auth: &str) -> JSONResult {
     client.get(url).bearer_auth(auth).send().await?.json().await
@@ -22,8 +22,11 @@ fn id_url(ctx: &FetchCtx, table: &str, id: &str) -> Result<Url, Error> {
 
 fn query_url(ctx: &FetchCtx, table: &str, field: &str, value: &str) -> Result<Url, Error> {
     let query = format!("{{{field}}} = '{value}'", field = field, value = value);
-    Url::parse_with_params(&base_url(&ctx.config, table), &[("filterByFormula", &query)])
-        .map_err(Error::UrlParser)
+    Url::parse_with_params(
+        &base_url(&ctx.config, table),
+        &[("filterByFormula", &query)],
+    )
+    .map_err(Error::UrlParser)
 }
 
 #[derive(Debug)]

@@ -12,4 +12,3 @@ pub struct One<T> {
 pub struct Many<T> {
     pub records: Vec<One<T>>,
 }
-

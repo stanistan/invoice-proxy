@@ -1,7 +1,7 @@
+use super::response::{Many, One};
 use crate::airtable::FetchCtx;
 use crate::error::Error;
 use crate::gen_schema::Table;
-use super::response::{Many, One};
 use std::marker::PhantomData;
 
 pub enum Param<T> {
@@ -33,10 +33,7 @@ impl<T: Table> Param<T> {
     }
 }
 
-pub async fn one<U: Table>(
-    ctx: &mut FetchCtx,
-    param: Param<U>,
-) -> Result<One<U::Fields>, Error> {
+pub async fn one<U: Table>(ctx: &mut FetchCtx, param: Param<U>) -> Result<One<U::Fields>, Error> {
     match param {
         Param::Query { key, value, .. } => {
             let result: Many<U::Fields> = ctx.fetch_query(U::NAME, &key, &value).await?;
@@ -70,4 +67,3 @@ pub async fn many<U: Table>(
         }
     })
 }
-
