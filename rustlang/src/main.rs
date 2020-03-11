@@ -1,15 +1,15 @@
 use std::net::SocketAddr;
 
 mod airtable;
+mod network;
+mod ctx;
 mod error;
 mod gen_schema;
 mod schema;
-mod ctx;
 mod transform;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-
     //
     // make sure we can airtable, yo, that we have the
     // right env setup/permissions here.

@@ -1,8 +1,7 @@
 use crate::error::Error;
 use reqwest::Url;
 use serde::de::DeserializeOwned;
-use serde_json::Value;
-use std::collections::HashMap;
+use crate::network::cache::{JSONResult, Cache};
 
 #[derive(Debug)]
 pub(crate) struct Config {
@@ -21,62 +20,10 @@ impl Config {
 }
 
 #[derive(Debug)]
-pub(crate) struct RequestCache {
-    hits: u32,
-    misses: u32,
-    storage: HashMap<Url, Value>,
-}
-
-impl RequestCache {
-    fn new() -> Self {
-        Self {
-            hits: 0,
-            misses: 0,
-            storage: HashMap::new(),
-        }
-    }
-
-    pub(crate) fn stats(&self) -> (u32, u32) {
-        (self.hits, self.misses)
-    }
-
-    pub(crate) fn clear(&mut self) {
-        self.hits = 0;
-        self.misses = 0;
-        self.storage.clear();
-    }
-}
-
-type JSONResult = Result<Value, reqwest::Error>;
-
-impl RequestCache {
-    async fn get_or_insert_with<
-        G: std::future::Future<Output = JSONResult>,
-        F: FnOnce(Url) -> G,
-    >(
-        &mut self,
-        url: Url,
-        f: F,
-    ) -> JSONResult {
-        // we have it!
-        if let Some(value) = self.storage.get(&url) {
-            self.hits += 1;
-            return Ok(value.clone());
-        }
-
-        // ok we don't have it.
-        self.misses += 1;
-        let value = f(url.clone()).await?;
-        self.storage.insert(url, value.clone());
-        Ok(value)
-    }
-}
-
-#[derive(Debug)]
 pub struct FetchCtx {
     config: Config,
     client: reqwest::Client,
-    pub(crate) cache: RequestCache,
+    pub(crate) cache: Cache,
 }
 
 async fn fetch_url(client: reqwest::Client, url: Url, auth: &str) -> JSONResult {
@@ -91,7 +38,7 @@ impl FetchCtx {
         let config = Config::from_env()?;
         Ok(Self {
             config,
-            cache: RequestCache::new(),
+            cache: Cache::new(),
             client: reqwest::Client::new(),
         })
     }
