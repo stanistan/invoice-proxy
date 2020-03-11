@@ -1,6 +1,7 @@
 use std::net::SocketAddr;
 
 mod airtable;
+mod config;
 mod network;
 mod ctx;
 mod error;

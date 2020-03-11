@@ -4,24 +4,8 @@ use serde::de::DeserializeOwned;
 use crate::network::cache::{JSONResult, Cache};
 
 #[derive(Debug)]
-pub(crate) struct Config {
-    pub key: String,
-    pub base: String,
-}
-
-impl Config {
-    pub(crate) fn from_env() -> Result<Self, &'static str> {
-        use std::env;
-        match (env::var("AIRTABLE_KEY"), env::var("AIRTABLE_APP")) {
-            (Ok(key), Ok(base)) => Ok(Self { key, base }),
-            _ => Err("Expected env variables AIRTABLE_KEY, and AIRTABLE_APP to be set"),
-        }
-    }
-}
-
-#[derive(Debug)]
 pub struct FetchCtx {
-    config: Config,
+    config: crate::config::Config,
     client: reqwest::Client,
     pub(crate) cache: Cache,
 }
@@ -35,7 +19,7 @@ impl FetchCtx {
     ///
     /// Required env vars are `AIRTABLE_KEY`, and `AIRTABLE_APP`.
     pub fn from_env() -> Result<Self, &'static str> {
-        let config = Config::from_env()?;
+        let config = crate::config::Config::from_env()?;
         Ok(Self {
             config,
             cache: Cache::new(),
