@@ -94,7 +94,8 @@ macro_rules! gen_airtable_schema {
         )*
     ) => {
 
-        use crate::airtable::{FetchCtx, response::One, Table};
+        use crate::airtable::{FetchCtx, Table};
+        use crate::network::response::One;
         use crate::compose;
         use serde::{Serialize, Deserialize};
 

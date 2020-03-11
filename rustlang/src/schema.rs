@@ -1,5 +1,5 @@
 use super::*;
-use crate::airtable::request::*;
+use crate::network::request::*;
 use crate::error::Error;
 use crate::transform::*;
 
