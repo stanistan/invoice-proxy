@@ -1,3 +1,8 @@
+pub trait Table {
+    const NAME: &'static str;
+    type Fields: serde::de::DeserializeOwned;
+}
+
 #[macro_export]
 macro_rules! build_route {
     ($ctx:expr, [ ]) => {
@@ -94,7 +99,8 @@ macro_rules! gen_airtable_schema {
         )*
     ) => {
 
-        use crate::airtable::{FetchCtx, Table};
+        use crate::airtable::FetchCtx;
+        use crate::gen_schema::Table;
         use crate::network::response::One;
         use crate::compose;
         use serde::{Serialize, Deserialize};

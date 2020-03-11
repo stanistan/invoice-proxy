@@ -76,8 +76,3 @@ impl FetchCtx {
         self.fetch(url).await
     }
 }
-
-pub trait Table {
-    const NAME: &'static str;
-    type Fields: DeserializeOwned;
-}
