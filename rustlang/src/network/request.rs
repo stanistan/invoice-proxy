@@ -1,7 +1,7 @@
-use super::response::{Many, One};
-use crate::airtable::{FetchCtx};
+use crate::airtable::FetchCtx;
 use crate::error::Error;
 use crate::gen_schema::Table;
+use super::response::{Many, One};
 use std::marker::PhantomData;
 
 pub enum Param<T> {
