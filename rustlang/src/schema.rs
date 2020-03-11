@@ -1,6 +1,6 @@
 use super::*;
-use crate::network::request::*;
 use crate::error::Error;
+use crate::network::request::*;
 use crate::transform::*;
 
 gen_airtable_schema! {
