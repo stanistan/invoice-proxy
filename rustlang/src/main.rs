@@ -28,6 +28,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     //
     // grab the generated router
+    //
+    // TODO: this should print/log the routes, which means
+    // that `route` methods should probably return a tuple
+    // of the `warp::Filter` with some `Debug` struct that we
+    // can output here.
     let router = schema::route(ctx);
 
     println!("Will be serving the app on {}", address);

@@ -137,11 +137,6 @@ macro_rules! gen_airtable_schema {
             #[allow(unused)]
             impl $mapped_name {
 
-                #[inline(always)]
-                fn new_ids_params(ids: Vec<String>) -> Param<Self> {
-                    Param::new_id(ids)
-                }
-
                 pub async fn create_one(ctx: &mut FetchCtx, one: One<$ns::Fields>) -> Result<Self,  Error> {
                     Ok(Self {
                         $($field_name: compose!(ctx, one.fields.$field_name, [ $($t),* ])?),*
@@ -149,6 +144,9 @@ macro_rules! gen_airtable_schema {
                 }
 
                 pub async fn create_many(ctx: &mut FetchCtx, many: Vec<One<$ns::Fields>>) -> Result<Vec<Self>, Error> {
+                    // TODO: this should not block/await on each loop,
+                    // but let them all run in parallel until they're done,
+                    // then we can accumulate them into the output vector.
                     let mut result = Vec::with_capacity(many.len());
                     for one in many {
                         result.push(Self::create_one(ctx, one).await?);
@@ -157,12 +155,12 @@ macro_rules! gen_airtable_schema {
                 }
 
                 pub async fn fetch_and_create_first(ctx: &mut FetchCtx, ids: Vec<String>) -> Result<Self, Error> {
-                    let params = Self::new_ids_params(ids);
+                    let params: Param<Self> = Param::new_id(ids);
                     compose!(ctx, params, [ one, Self::create_one ])
                 }
 
                 pub async fn fetch_and_create_many(ctx: &mut FetchCtx, ids: Vec<String>) -> Result<Vec<Self>, Error> {
-                    let params = Self::new_ids_params(ids);
+                    let params: Param<Self> = Param::new_id(ids);
                     compose!(ctx, params, [ many, Self::create_many ])
                 }
 
@@ -171,7 +169,7 @@ macro_rules! gen_airtable_schema {
 
         )*  // end for each
 
-        // a generated route for all of the endpoints created by the schema, yea i know, it cray.
+        /// Generated `warp::Filter` for all endpoints created by the schema.
         pub fn route(ctx: crate::ctx::Ctx) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
             use warp::Filter;
             crate::build_route!(ctx, crate::ctx::ctx_cache::route(ctx.clone()), [
