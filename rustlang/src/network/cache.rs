@@ -20,7 +20,7 @@ pub(crate) struct Cache {
 impl Cache {
     pub(crate) fn new() -> Self {
         Self {
-            stats: Stats { hits: 0, misses: 0, },
+            stats: Stats { hits: 0, misses: 0 },
             storage: HashMap::new(),
         }
     }

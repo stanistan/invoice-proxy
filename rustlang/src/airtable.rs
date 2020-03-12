@@ -3,30 +3,21 @@ use crate::network::cache::{Cache, JSONResult};
 use reqwest::Url;
 use serde::de::DeserializeOwned;
 
+type Result<T> = std::result::Result<T, Error>;
+
 async fn fetch(client: reqwest::Client, url: Url, auth: &str) -> JSONResult {
     client.get(url).bearer_auth(auth).send().await?.json().await
 }
 
-fn base_url(config: &crate::config::Config, table: &str) -> String {
-    format!(
-        "https://api.airtable.com/v0/{base}/{table}",
-        base = config.base,
-        table = table
-    )
-}
-
-fn id_url(ctx: &FetchCtx, table: &str, id: &str) -> Result<Url, Error> {
-    let url = format!("{}/{}", base_url(&ctx.config, table), id);
+fn id_url(ctx: &FetchCtx, table: &str, id: &str) -> Result<Url> {
+    let url = format!("{}/{}", ctx.config.table_url(table), id);
     Url::parse(&url).map_err(Error::UrlParser)
 }
 
-fn query_url(ctx: &FetchCtx, table: &str, field: &str, value: &str) -> Result<Url, Error> {
+fn query_url(ctx: &FetchCtx, table: &str, field: &str, value: &str) -> Result<Url> {
     let query = format!("{{{field}}} = '{value}'", field = field, value = value);
-    Url::parse_with_params(
-        &base_url(&ctx.config, table),
-        &[("filterByFormula", &query)],
-    )
-    .map_err(Error::UrlParser)
+    Url::parse_with_params(&ctx.config.table_url(table), &[("filterByFormula", &query)])
+        .map_err(Error::UrlParser)
 }
 
 #[derive(Debug)]
@@ -40,7 +31,7 @@ impl FetchCtx {
     /// Creates a `FetchCtx` from the environment.
     ///
     /// Required env vars are `AIRTABLE_KEY`, and `AIRTABLE_APP`.
-    pub fn from_env() -> Result<Self, &'static str> {
+    pub fn from_env() -> Result<Self> {
         let config = crate::config::Config::from_env()?;
         Ok(Self {
             config,
@@ -49,22 +40,18 @@ impl FetchCtx {
         })
     }
 
-    async fn fetch<T: DeserializeOwned>(&mut self, url: Url) -> Result<T, Error> {
+    async fn fetch<T: DeserializeOwned>(&mut self, url: Url) -> Result<T> {
         let client = self.client.clone();
         let key = &self.config.key;
         let value = self
             .cache
-            .get_or_insert_with(url, move |u| fetch(client, u, key))
+            .get_or_insert_with(url, move |url| fetch(client, url, key))
             .await
             .map_err(Error::Req)?;
         serde_json::from_value(value).map_err(Error::SerdeTransform)
     }
 
-    pub async fn fetch_id<T: DeserializeOwned>(
-        &mut self,
-        table: &str,
-        id: &str,
-    ) -> Result<T, Error> {
+    pub async fn fetch_id<T: DeserializeOwned>(&mut self, table: &str, id: &str) -> Result<T> {
         let url = id_url(&self, table, id)?;
         self.fetch(url).await
     }
@@ -74,7 +61,7 @@ impl FetchCtx {
         table: &str,
         field: &str,
         value: &str,
-    ) -> Result<T, Error> {
+    ) -> Result<T> {
         let url = query_url(&self, table, field, value)?;
         self.fetch(url).await
     }
