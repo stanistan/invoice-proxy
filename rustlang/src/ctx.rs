@@ -32,10 +32,10 @@ pub mod ctx_cache {
     /// Shows the stats for the cache of the `FetchCtx`.
     async fn show(ctx: Ctx) -> Result<impl Reply, Rejection> {
         let ctx = ctx.lock().await;
-        let (hits, misses) = ctx.cache.stats();
+        let stats = ctx.cache.stats();
         Ok(warp::reply::json(&json!({
-            "hits": hits,
-            "misses": misses,
+            "hits": stats.hits,
+            "misses": stats.misses,
         })))
     }
 
