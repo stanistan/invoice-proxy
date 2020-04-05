@@ -14,10 +14,13 @@ macro_rules! build_route {
     ($ctx:expr, [ $name:expr, $($ns:expr),+ ]) => {
         build_route!($ctx, $name($ctx.clone()), [ $($ns),+ ])
     };
-    ($ctx:expr, $r:expr, [ ]) => {
+    ($ctx:expr, $r:expr, [ $(,)* ]) => {
         $r
     };
     ($ctx:expr, $r:expr, [ $name:expr ]) => {
+        $r.or($name($ctx.clone()))
+    };
+    ($ctx:expr, $r:expr, [ $name:expr, ]) => {
         $r.or($name($ctx.clone()))
     };
     ($ctx:expr, $r:expr, [ $name:expr, $($ns:expr),+ ]) => {
@@ -59,7 +62,7 @@ macro_rules! gen_airtable_schema {
             use warp::{Filter, Reply, Rejection};
 
             pub fn route(ctx: Ctx) -> impl Filter<Extract = impl Reply, Error = Rejection> + Clone {
-                crate::build_route!(ctx, [ $($name::route),* ])
+                crate::build_route!(ctx, warp::[ $($name::route),* ])
             }
 
             $(pub mod $name {
@@ -95,7 +98,7 @@ macro_rules! gen_airtable_schema {
         @gen $(
             $ns:ident, $ns_name:expr, $name:expr, $mapped_name:ident [ $(
                 $json_name:expr, $field_name:ident, $field_type:ty, -> [ $($t:expr,)* ]: $t_field:ty
-            )*], { $(mod $($mod_tokens:tt)*)? } { $(endpoints $($endpoints_tokens:tt)*)? }
+            )*], { mod $($mod_tokens:tt)* } { endpoints $($endpoints_tokens:tt)* }
         )*
     ) => {
 
@@ -122,9 +125,9 @@ macro_rules! gen_airtable_schema {
                     $( pub $field_name: $t_field, )*
                 }
 
-                $($($mod_tokens)*)?
+                $($mod_tokens)*
 
-                $(gen_airtable_schema!(@endpoints $ns_name; $($endpoints_tokens)*);)?
+                gen_airtable_schema!(@endpoints $ns_name; $($endpoints_tokens)*);
             }
 
             pub type $mapped_name = $ns::Mapped;
@@ -172,8 +175,11 @@ macro_rules! gen_airtable_schema {
         /// Generated `warp::Filter` for all endpoints created by the schema.
         pub fn route(ctx: crate::ctx::Ctx) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
             use warp::Filter;
-            crate::build_route!(ctx, crate::ctx::ctx_cache::route(ctx.clone()), [
-                $( $(gen_airtable_schema!(@endpoints_route $ns { $($endpoints_tokens),* }))? )*
+            let ctx_cache = crate::ctx::ctx_cache::route(ctx.clone());
+            crate::build_route!(ctx, ctx_cache, [
+                $(
+                    gen_airtable_schema!(@endpoints_route $ns { $($endpoints_tokens),* })
+                ),*
             ])
         }
 
@@ -188,10 +194,9 @@ macro_rules! gen_airtable_schema {
                     $(
                         $k:expr => fn $fn:ident ($ft:ty) -> $t_ft:ty { $($tfs:expr),+ },
                     )*
-                }
-                $(, mod { $($mod_tokens:tt)* })?
-                $(, endpoints { $($endpoints_tokens:tt)* })?
-            ;
+                },
+                mod { $($mod_tokens:tt)* },
+                endpoints { $($endpoints_tokens:tt)* };
         )*
     ) => {
         gen_airtable_schema! {
@@ -201,8 +206,8 @@ macro_rules! gen_airtable_schema {
                         $k, $fn, $ft, -> [ $($tfs,)* ]: $t_ft
                      )*
                 ],
-                { $(mod $($mod_tokens)*)? }
-                { $(endpoints $($endpoints_tokens)*)? }
+                { mod $($mod_tokens)* }
+                { endpoints $($endpoints_tokens)* }
             )*
         }
     }

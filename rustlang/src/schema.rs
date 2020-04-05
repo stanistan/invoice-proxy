@@ -1,3 +1,4 @@
+#![allow(unused)]
 use super::*;
 use crate::error::Error;
 use crate::network::request::*;
@@ -11,6 +12,11 @@ gen_airtable_schema! {
         },
         mod {
             pure_fn!(get_name(unit: Mapped) -> String { Ok(unit.name) });
+        }, endpoints {
+            query(String) -> InvoiceItem {
+                into_vec,
+                InvoiceItem::fetch_and_create_first
+            }
         };
 
     invoice_item_rate("Invoice Rates")
@@ -22,6 +28,12 @@ gen_airtable_schema! {
                 InvoiceUnit::fetch_and_create_first,
                 invoice_rate_unit::get_name
             },
+        }, mod {
+        }, endpoints {
+            query(String) -> InvoiceItem {
+                into_vec,
+                InvoiceItem::fetch_and_create_first
+            }
         };
 
     invoice_item("Invoice Item")
@@ -33,6 +45,12 @@ gen_airtable_schema! {
             "Invoice Rate" => fn rate(IDs) -> InvoiceRate {
                 InvoiceRate::fetch_and_create_first
             },
+        }, mod {
+        }, endpoints {
+            query(String) -> InvoiceItem {
+                into_vec,
+                InvoiceItem::fetch_and_create_first
+            }
         };
 
     invoice_client("Clients")
@@ -41,6 +59,12 @@ gen_airtable_schema! {
             "ContactEmail" => fn contact_email(String) -> String { id },
             "ContactName" => fn contact_name(String) -> String { id },
             "Website" => fn website_url(String) -> String { id },
+        }, mod {
+        }, endpoints {
+            query(String) -> InvoiceClient {
+                into_vec,
+                InvoiceClient::fetch_and_create_first
+            }
         };
 
     invoice_from("Me")
@@ -48,6 +72,13 @@ gen_airtable_schema! {
             "Name" => fn name(String) -> String { id },
             "Email" => fn email(String) -> String { id },
             "Address" => fn address(String) -> Vec<String> { split_lines },
+        },
+        mod { },
+        endpoints {
+            query(String) -> InvoiceFrom {
+                into_vec,
+                InvoiceFrom::fetch_and_create_first
+            }
         };
 
     invoice("Invoice")
