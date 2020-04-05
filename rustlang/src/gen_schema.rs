@@ -83,7 +83,7 @@ macro_rules! gen_airtable_schema {
                     let mut c = ctx.lock().await;
                     match f(&mut c, arg).await {
                         Ok(val) => Ok(warp::reply::json(&val)),
-                        Err(_) => Err(warp::reject::not_found())
+                        Err(e) => Err(warp::reject::custom(e))
                     }
                 }
             })*

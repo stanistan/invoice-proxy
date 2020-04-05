@@ -1,3 +1,5 @@
+use crate::error::Error;
+
 #[derive(Debug)]
 pub(crate) struct Config {
     pub key: String,
@@ -5,11 +7,14 @@ pub(crate) struct Config {
 }
 
 impl Config {
+    const KEYS: [&'static str; 2] = ["AIRTABLE_KEY", "AIRTABLE_APP"];
+
     pub(crate) fn from_env() -> Result<Self, crate::error::Error> {
-        use std::env;
-        match (env::var("AIRTABLE_KEY"), env::var("AIRTABLE_APP")) {
-            (Ok(key), Ok(base)) => Ok(Self { key, base }),
-            _ => Err(crate::error::Error::MissingEnvConfig),
+        match Self::KEYS {
+            [key, base] => match (std::env::var(key), std::env::var(base)) {
+                (Ok(key), Ok(base)) => Ok(Self { key, base }),
+                _ => Err(Error::MissingEnvConfig(Self::KEYS)),
+            },
         }
     }
 
