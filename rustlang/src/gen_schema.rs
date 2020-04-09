@@ -4,6 +4,117 @@ pub trait Table {
 }
 
 #[macro_export]
+macro_rules! __gen_inner {
+
+    (
+        @main $($name:ident ($table:expr) -> $out:ident { $($inner:tt)* })*
+    ) => {
+        pub mod gen {
+            use super::*;
+            use crate::airtable::FetchCtx;
+            use crate::compose;
+            use crate::error::Error;
+            use crate::gen_schema::Table;
+            use crate::network::request::*;
+            use crate::network::response::One;
+            use crate::transform::*;
+            use serde::{Serialize, Deserialize};
+            $(__gen_inner!{@table $name, stringify!($name), ($table) -> $out { $($inner)* }})*
+        }
+    };
+
+    (
+        @table $mod_name:ident, $mod_str_name:expr, ($table:expr) -> $type:ident {
+            $(fields { $($fields:tt)* })?
+            $(module { $($module:tt)* })?
+            $(endpoints { $($endpoints:tt)* })?
+        }
+    ) => {
+        pub mod $mod_name {
+            #![allow(unused)]
+            use super::*;
+
+            // generate the fields and structs for mapping/transformation
+            $(__gen_inner!{@fields $table, [ $($fields)* ]})?
+
+            // insert any module that's been done there, inlined
+            $($($module)*)?
+
+            // TODO endpoints
+        }
+
+        /// Generated type alias for `Mapped` in the module.
+        type $type = $mod_name::Mapped;
+    };
+    //
+    // Macro generates the `Fields` type, the `Mapped` type,
+    // which correspond respectively, to the JSON shape that comes back
+    // and we want to parse for the module, as well as the more complex
+    // mapping of the fully hydrated type that will be constructed.
+    (
+        @fields $table:expr, [
+            $($name:ident ($from:ty) -> $to:ty {
+                name = $field_name:expr;
+                $(exec = $($exec:expr),*;)?
+            })*
+        ]
+    ) => {
+        #[derive(Debug, Deserialize)]
+        pub struct Fields {
+            $( #[serde(rename = $field_name)] pub $name: $from, )*
+        }
+
+        #[derive(Debug, Serialize)]
+        pub struct Mapped {
+            $( pub $name: $to, )*
+        }
+
+        impl Table for Mapped {
+            const NAME: &'static str = $table;
+            type Fields = Fields;
+        }
+
+        impl Mapped {
+
+            pub async fn create_one(ctx: &mut FetchCtx, one: One<Fields>) -> Result<Self, Error> {
+                Ok(Self {
+                    $($name: compose!(ctx, one.fields.$name, [ $($($exec),*)? ])?),*
+                })
+            }
+
+            pub async fn create_many(ctx: &mut FetchCtx, many: Vec<One<Fields>>) -> Result<Vec<Self>, Error> {
+                // TODO: this should not block/await on each loop,
+                // but let them all run in parallel until they're done,
+                // then we can accumulate them into the output vector.
+                let mut result = Vec::with_capacity(many.len());
+                for one in many {
+                    result.push(Self::create_one(ctx, one).await?);
+                }
+                Ok(result)
+            }
+
+            pub async fn fetch_and_create_first(ctx: &mut FetchCtx, ids: Vec<String>) -> Result<Self, Error> {
+                let params: Param<Self> = Param::new_id(ids);
+                compose!(ctx, params, [ one, Self::create_one ])
+            }
+
+            pub async fn fetch_and_create_many(ctx: &mut FetchCtx, ids: Vec<String>) -> Result<Vec<Self>, Error> {
+                let params: Param<Self> = Param::new_id(ids);
+                compose!(ctx, params, [ many, Self::create_many ])
+            }
+        }
+
+    };
+}
+
+#[macro_export]
+macro_rules! gen_airtable_schema2 {
+    ($($tt:tt)*) => {
+        __gen_inner!{@main $($tt)*}
+    }
+}
+
+#[macro_export]
 macro_rules! build_route {
     ($ctx:expr, [ ]) => {
         unimplemented!("Missing any defined endpoints")
@@ -62,7 +173,10 @@ macro_rules! gen_airtable_schema {
             use warp::{Filter, Reply, Rejection};
 
             pub fn route(ctx: Ctx) -> impl Filter<Extract = impl Reply, Error = Rejection> + Clone {
-                crate::build_route!(ctx, warp::[ $($name::route),* ])
+                let default = warp::get().map(|| {
+                    ":shrug:"
+                });
+                crate::build_route!(ctx, default, [ $($name::route),* ])
             }
 
             $(pub mod $name {
