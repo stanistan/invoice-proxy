@@ -46,6 +46,10 @@ macro_rules! __gen_inner {
         /// Generated type alias for `Mapped` in the module.
         type $type = $mod_name::Mapped;
     };
+    ( @choose_field_type $type1:ty | $type2:ty) => { $type1 };
+    ( @choose_field_type | $type:ty) => { $type };
+    ( @choose_field_type $type:ty |) => { $type };
+    ( @choose_field_type |) => { String };
     //
     // Macro generates the `Fields` type, the `Mapped` type,
     // which correspond respectively, to the JSON shape that comes back
@@ -53,20 +57,23 @@ macro_rules! __gen_inner {
     // mapping of the fully hydrated type that will be constructed.
     (
         @fields $table:expr, [
-            $($name:ident ($from:ty) -> $to:ty {
-                name = $field_name:expr;
+            $($name:ident $(($from:ty))? $(-> $to:ty)? {
+                source = $rename:expr;
                 $(exec = $($exec:expr),*;)?
             })*
         ]
     ) => {
         #[derive(Debug, Deserialize)]
         pub struct Fields {
-            $( #[serde(rename = $field_name)] pub $name: $from, )*
+            $(
+                #[serde(rename = $rename)]
+                pub $name: __gen_inner!(@choose_field_type $($from)? | $($to)?),
+            )*
         }
 
         #[derive(Debug, Serialize)]
         pub struct Mapped {
-            $( pub $name: $to, )*
+            $( pub $name: __gen_inner!(@choose_field_type $($to)? |),)*
         }
 
         impl Table for Mapped {

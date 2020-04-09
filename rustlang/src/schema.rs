@@ -8,8 +8,8 @@ gen_airtable_schema2! {
 
     invoice_rate_unit("Invoice Units") -> InvoiceRateUnit {
         fields {
-            name(String) -> String {
-                name = "Name";
+            name {
+                source = "Name";
             }
         }
         module {
@@ -22,21 +22,21 @@ gen_airtable_schema2! {
 
     invoice_item_rate("Invoice Rates") -> InvoiceRate {
         fields {
-            name(String) -> String {
-                name = "Name";
+            name {
+                source = "Name";
             }
-            notes(Option<String>) -> Option<String> {
-                name = "Notes";
+            notes -> Option<String> {
+                source = "Notes";
             }
-            quantity(u32) -> u32 {
-                name = "Quantity";
+            quantity {
+                source = "Quantity";
             }
             amount(u32) -> String {
-                name = "Amount";
+                source = "Amount";
                 exec = money;
             }
             unit(IDs) -> String {
-                name = "Unit";
+                source = "Unit";
                 exec = InvoiceRateUnit::fetch_and_create_first, invoice_rate_unit::get_name;
             }
         }
@@ -44,17 +44,17 @@ gen_airtable_schema2! {
 
     invoice_item("Invoice Item") -> InvoiceItem {
         fields {
-            date(String) -> String {
-                name = "Date";
+            date {
+                source = "Date";
             }
-            description(String) -> String {
-                name = "Description";
+            description {
+                source = "Description";
             }
-            quantity(u32) -> u32 {
-                name = "Quantity";
+            quantity {
+                source = "Quantity";
             }
             rate(IDs) -> InvoiceRate {
-                name = "Invoice Rate";
+                source = "Invoice Rate";
                 exec = InvoiceRate::fetch_and_create_first;
             }
         }
@@ -62,31 +62,31 @@ gen_airtable_schema2! {
 
     invoice_client("Clients") -> InvoiceClient {
         fields {
-            company(String) -> String {
-                name = "Company";
+            company {
+                source = "Company";
             }
-            contact_email(String) -> String {
-                name = "ContactEmail";
+            contact_email {
+                source = "ContactEmail";
             }
-            contact_name(String) -> String {
-                name = "ContactName";
+            contact_name {
+                source = "ContactName";
             }
-            website_url(String) -> String {
-                name = "Website";
+            website_url {
+                source = "Website";
             }
         }
     }
 
     invoice_from("Me") -> InvoiceFrom {
         fields {
-            name(String) -> String {
-                name = "Name";
+            name {
+                source = "Name";
             }
-            email(String) -> String {
-                name = "Email";
+            email {
+                source = "Email";
             }
             address(String) -> Vec<String> {
-                name = "Address";
+                source = "Address";
                 exec = split_lines;
             }
         }
@@ -94,44 +94,55 @@ gen_airtable_schema2! {
 
     invoice("Invoice") -> Invoice {
         fields {
-            id(u32) -> u32 {
-                name = "ID";
+            id {
+                source = "ID";
             }
-            number(String) -> String {
-                name = "Invoice Number";
+            number {
+                source = "Invoice Number";
             }
-            notes(String) -> String {
-                name = "Notes";
+            notes {
+                source = "Notes";
             }
-            date(String) -> String {
-                name = "Date";
+            date {
+                source = "Date";
             }
-            due_date(String) -> String {
-                name = "Due Date";
+            due_date {
+                source = "Due Date";
             }
             was_sent(MaybeBool) -> bool {
-                name = "Sent?";
+                source = "Sent?";
                 exec = force_bool;
             }
             was_paid(MaybeBool) -> bool {
-                name = "Paid?";
+                source = "Paid?";
                 exec = force_bool;
             }
             total(u32) -> String {
-                name = "Total Amount";
+                source = "Total Amount";
                 exec = money;
             }
             from(IDs) -> InvoiceFrom {
-                name = "From";
+                source = "From";
                 exec = InvoiceFrom::fetch_and_create_first;
             }
             client(IDs) -> InvoiceClient {
-                name = "Client";
+                source = "Client";
                 exec = InvoiceClient::fetch_and_create_first;
             }
             items(IDs) -> Vec<InvoiceItem> {
-                name = "Invoice Item";
+                source = "Invoice Item";
                 exec = InvoiceItem::fetch_and_create_many;
+            }
+        }
+        module {
+            pure_fn!(id_query(id: String) -> Param<Mapped> {
+                Ok(Param::new_query("ID".to_string(), id))
+            });
+        }
+        endpoints {
+            query_by_invoice_id(String) -> Invoice {
+                path = String;
+                exec = id_query, one, Invoice::create_one;
             }
         }
     }
