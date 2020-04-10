@@ -15,9 +15,6 @@ gen_airtable_schema2! {
         module {
             pure_fn!(get_name(unit: Mapped) -> String { Ok(unit.name) });
         }
-        endpoints {
-
-        }
     }
 
     invoice_item_rate("Invoice Rates") -> InvoiceRate {
@@ -141,7 +138,7 @@ gen_airtable_schema2! {
         }
         endpoints {
             query_by_invoice_id(String) -> Invoice {
-                path = String;
+                url_path { String }
                 exec = id_query, one, Invoice::create_one;
             }
         }

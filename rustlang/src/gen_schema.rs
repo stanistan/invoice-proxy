@@ -20,6 +20,13 @@ macro_rules! __gen_inner {
             use crate::transform::*;
             use serde::{Serialize, Deserialize};
             $(__gen_inner!{@table $name, stringify!($name), ($table) -> $out { $($inner)* }})*
+
+            /// Generated `warp::Filter` for all endpoints created by the schema.
+            pub fn route(ctx: crate::ctx::Ctx) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+                use warp::Filter;
+                let ctx_cache = crate::ctx::ctx_cache::route(ctx.clone());
+                crate::build_route!(ctx, ctx_cache, [ ])
+            }
         }
     };
 
@@ -40,7 +47,14 @@ macro_rules! __gen_inner {
             // insert any module that's been done there, inlined
             $($($module)*)?
 
-            // TODO endpoints
+            // generate an endpoints module
+            pub mod endpoints {
+                #![allow(unused)]
+                use super::*;
+                use crate::ctx::Ctx;
+                use warp::{Filter, Reply, Rejection};
+                __gen_inner!{@endpoints $mod_str_name, [ $($($endpoints)*)? ]}
+            }
         }
 
         /// Generated type alias for `Mapped` in the module.
@@ -50,6 +64,46 @@ macro_rules! __gen_inner {
     ( @choose_field_type | $type:ty) => { $type };
     ( @choose_field_type $type:ty |) => { $type };
     ( @choose_field_type |) => { String };
+    (
+        @endpoints $mod_str_name:expr, [
+            $($name:ident ($from:ty) -> $to:ty {
+                url_path { $($path_tokens:tt)* }
+                $(exec = $($exec:expr),*;)?
+            })*
+        ]
+    ) => {
+        $(pub mod $name {
+            #![allow(unused)]
+            use super::*;
+            use crate::ctx::with_ctx;
+
+            pub fn route(ctx: Ctx) -> impl Filter<Extract = impl Reply, Error = Rejection> + Clone {
+                warp::path($mod_str_name)
+                    .and(warp::path::param::<$from>())
+                    .and(warp::get())
+                    .and(with_ctx(ctx))
+                    .and_then(run)
+            }
+
+            pub async fn run(arg: $from, ctx: Ctx) -> Result<impl Reply, Rejection> {
+                async fn handler(ctx: &mut FetchCtx, arg: $from) -> Result<$to, Error> {
+                    compose!(ctx, arg, [ $($($exec),*)? ])
+                }
+
+                let mut c = ctx.lock().await;
+                match handler(&mut c, arg).await {
+                    Ok(val) => Ok(warp::reply::json(&val)),
+                    Err(e) => Err(warp::reject::custom(e))
+                }
+            }
+
+        })*
+
+        pub fn route(ctx: Ctx) -> impl Filter<Extract = impl Reply, Error = Rejection> + Clone {
+            let d = warp::get().map(|| { $mod_str_name });
+            crate::build_route!(ctx, d, [ $($name::route),* ])
+        }
+    };
     //
     // Macro generates the `Fields` type, the `Mapped` type,
     // which correspond respectively, to the JSON shape that comes back
