@@ -182,7 +182,7 @@ macro_rules! __gen_inner {
 }
 
 #[macro_export]
-macro_rules! gen_airtable_schema2 {
+macro_rules! gen_airtable_schema {
     ($($tt:tt)*) => {
         __gen_inner!{@main $($tt)*}
     }

@@ -4,7 +4,7 @@ use crate::error::Error;
 use crate::network::request::*;
 use crate::transform::*;
 
-gen_airtable_schema2! {
+gen_airtable_schema! {
 
     invoice_rate_unit("Invoice Units") -> InvoiceRateUnit {
         fields {
