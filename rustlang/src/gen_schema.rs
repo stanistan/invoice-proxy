@@ -49,6 +49,14 @@ macro_rules! __gen_inner {
             // insert any module that's been done there, inlined
             $($($module)*)?
 
+            pub mod param {
+                #![allow(unused)]
+                use super::*;
+                pure_fn!(as_id_query(id: String) -> Param<Mapped> {
+                    Ok(Param::new_query("ID".to_string(), id))
+                });
+            }
+
             // generate an endpoints module
             pub mod endpoints {
                 #![allow(unused)]

@@ -131,15 +131,14 @@ gen_airtable_schema! {
                 exec = InvoiceItem::fetch_and_create_many;
             }
         }
-        module {
-            pure_fn!(id_query(id: String) -> Param<Mapped> {
-                Ok(Param::new_query("ID".to_string(), id))
-            });
-        }
         endpoints {
             query_by_invoice_id(String) -> Invoice {
                 url_path { String }
-                exec = id_query, one, Invoice::create_one;
+                exec = param::as_id_query, one, Invoice::create_one;
+            }
+            find_by_record_id(String) -> Invoice {
+                url_path { String }
+                exec = into_vec, Invoice::fetch_and_create_first;
             }
         }
     }
