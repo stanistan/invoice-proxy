@@ -11,7 +11,7 @@ async fn fetch(client: reqwest::Client, url: Url, auth: &str) -> JSONResult {
 
 fn id_url(ctx: &FetchCtx, table: &str, id: &str) -> Result<Url> {
     let url = format!("{}/{}", ctx.config.table_url(table), id);
-    Url::parse(&url).map_err(Error::UrlParser)
+    (Url::parse(&url).map_err(Error::UrlParser)
 }
 
 fn query_url(ctx: &FetchCtx, table: &str, field: &str, value: &str) -> Result<Url> {
