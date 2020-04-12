@@ -1,12 +1,26 @@
 use crate::error::Error;
-use crate::network::cache::{Cache, JSONResult};
+use crate::network::cache::Cache;
 use reqwest::Url;
 use serde::de::DeserializeOwned;
+use serde_json::Value;
 
 type Result<T> = std::result::Result<T, Error>;
 
-async fn fetch(client: reqwest::Client, url: Url, auth: &str) -> JSONResult {
-    client.get(url).bearer_auth(auth).send().await?.json().await
+async fn fetch(client: reqwest::Client, url: Url, auth: &str) -> Result<Value> {
+    let response = client
+        .get(url)
+        .bearer_auth(auth)
+        .send()
+        .await
+        .map_err(Error::Req)?;
+    if response.status().is_success() {
+        response.json().await.map_err(Error::Req)
+    } else {
+        Err(Error::Response {
+            status: response.status().to_string(),
+            url: format!("{}", response.url()),
+        })
+    }
 }
 
 fn id_url(ctx: &FetchCtx, table: &str, id: &str) -> Result<Url> {
@@ -46,8 +60,7 @@ impl FetchCtx {
         let value = self
             .cache
             .get_or_insert_with(url, move |url| fetch(client, url, key))
-            .await
-            .map_err(Error::Req)?;
+            .await?;
         serde_json::from_value(value).map_err(Error::SerdeTransform)
     }
 

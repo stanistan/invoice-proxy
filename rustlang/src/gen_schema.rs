@@ -160,7 +160,12 @@ macro_rules! __gen_inner {
 
             pub async fn create_one(ctx: &mut FetchCtx, one: One<Fields>) -> Result<Self, Error> {
                 Ok(Self {
-                    $($name: compose!(ctx, one.fields.$name, [ $($($exec),*)? ])?),*
+                    $(
+                        $name: match compose!(ctx, one.fields.$name, [ $($($exec),*)? ]) {
+                            Ok(val) => val,
+                            Err(e) => return Err(Error::Create($table, Box::new(e))),
+                        }
+                     ),*
                 })
             }
 

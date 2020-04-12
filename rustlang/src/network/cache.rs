@@ -1,4 +1,5 @@
-use reqwest::{Error, Url};
+use crate::error::Error;
+use reqwest::Url;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::future::Future;
