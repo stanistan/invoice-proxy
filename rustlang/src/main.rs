@@ -33,7 +33,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // that `route` methods should probably return a tuple
     // of the `warp::Filter` with some `Debug` struct that we
     // can output here.
-    let router = schema::route(ctx);
+    let router = schema::gen::route(ctx);
 
     println!("Will be serving the app on {}", address);
     warp::serve(router).run(address).await;

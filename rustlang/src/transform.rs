@@ -7,6 +7,8 @@
 //! 4. return a `Result<_, Error>` which is defined below.
 //!
 
+#![allow(unused)]
+
 use crate::airtable::FetchCtx;
 use crate::error::Error;
 
@@ -83,4 +85,8 @@ fn get_first<T>(mut vec: Vec<T>) -> Result<T, Error> {
 
 pure_fn!(first<T>(vec: Vec<T>) -> T {
     get_first(vec)
+});
+
+pure_fn!(into_vec<T>(value: T) -> Vec<T> {
+    Ok(vec![value])
 });
