@@ -13,15 +13,16 @@ use warp::{Filter, Rejection, Reply};
 /// It needs to be in a mutex is because we have
 /// a request cache that we read from, write to
 /// for this server, which, is obviously mutable.
-pub(crate) type Ctx = Arc<Mutex<airtable::FetchCtx>>;
+pub type Ctx = Arc<Mutex<airtable::FetchCtx>>;
 
-pub(crate) fn wrap_ctx(ctx: airtable::FetchCtx) -> Ctx {
+#[allow(unused)]
+pub fn wrap_ctx(ctx: airtable::FetchCtx) -> Ctx {
     Arc::new(Mutex::new(ctx))
 }
 
 /// This function creates a filter that adds a context
 /// to all the endpoints that need it.
-pub(crate) fn with_ctx(ctx: Ctx) -> impl Filter<Extract = (Ctx,), Error = Infallible> + Clone {
+pub fn with_ctx(ctx: Ctx) -> impl Filter<Extract = (Ctx,), Error = Infallible> + Clone {
     warp::any().map(move || ctx.clone())
 }
 

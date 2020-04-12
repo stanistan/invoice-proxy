@@ -1,5 +1,8 @@
-use airtable_proxy::gen_airtable_schema;
-use airtable_proxy::pure_fn;
+#![allow(unused)]
+use super::*;
+use crate::error::Error;
+use crate::network::request::*;
+use crate::transform::*;
 
 gen_airtable_schema! {
 
@@ -139,4 +142,5 @@ gen_airtable_schema! {
             }
         }
     }
+
 }
