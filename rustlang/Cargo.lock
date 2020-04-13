@@ -440,7 +440,6 @@ version = "0.1.0"
 dependencies = [
  "airtable-proxy 0.1.0",
  "serde 1.0.104 (registry+https://github.com/rust-lang/crates.io-index)",
- "warp 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]

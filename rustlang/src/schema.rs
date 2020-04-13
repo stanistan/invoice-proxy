@@ -1,5 +1,5 @@
-use airtable_proxy::gen_airtable_schema;
-use airtable_proxy::pure_fn;
+use airtable_proxy::*;
+use airtable_proxy::serde::*;
 
 gen_airtable_schema! {
 

@@ -1,6 +1,7 @@
 pub trait Table {
     const NAME: &'static str;
-    type Fields: serde::de::DeserializeOwned;
+    const MODULE_NAME: &'static str;
+    type Fields: crate::serde::de::DeserializeOwned;
 }
 
 #[macro_export]
@@ -20,6 +21,7 @@ macro_rules! __gen_inner {
             use $crate::transform::*;
 
             use $crate::serde::{Serialize, Deserialize};
+            use $crate::warp;
 
             // TODO: comment/splanations
             $($crate::__gen_inner!{@table $name, stringify!($name), ($table) -> $out { $($inner)* }})*
@@ -45,7 +47,7 @@ macro_rules! __gen_inner {
             use super::*;
 
             // generate the fields and structs for mapping/transformation
-            $($crate::__gen_inner!{@fields $table, [ $($fields)* ]})?
+            $($crate::__gen_inner!{@fields $mod_str_name, $table, [ $($fields)* ]})?
 
             // insert any module that's been done there, inlined
             $($($module)*)?
@@ -63,6 +65,7 @@ macro_rules! __gen_inner {
                 #![allow(unused)]
                 use super::*;
                 use $crate::ctx::Ctx;
+                use $crate::warp;
                 $crate::__gen_inner!{@endpoints $mod_str_name, [ $($($endpoints)*)? ]}
             }
         }
@@ -86,6 +89,8 @@ macro_rules! __gen_inner {
             #![allow(unused)]
             use super::*;
             use $crate::ctx::with_ctx;
+
+            use $crate::warp;
             use $crate::warp::{Filter, Rejection, Reply};
 
             pub fn route(ctx: Ctx) -> impl Filter<Extract = impl Reply, Error = Rejection> + Clone {
@@ -118,8 +123,8 @@ macro_rules! __gen_inner {
         })*
 
         pub fn route(ctx: Ctx) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-            use $crate::warp::Filter;
-            let default_route = $crate::warp::path($mod_str_name)
+            use warp::Filter;
+            let default_route = warp::path($mod_str_name)
                 .and(warp::get())
                 .map(|| format!("fine.... {}", $mod_str_name));
 
@@ -132,7 +137,7 @@ macro_rules! __gen_inner {
     // and we want to parse for the module, as well as the more complex
     // mapping of the fully hydrated type that will be constructed.
     (
-        @fields $table:expr, [
+        @fields $mod_str_name:expr, $table:expr, [
             $($name:ident $(($from:ty))? $(-> $to:ty)? {
                 source = $rename:expr;
                 $(exec = $($exec:expr),*;)?
@@ -154,6 +159,7 @@ macro_rules! __gen_inner {
 
         impl Table for Mapped {
             const NAME: &'static str = $table;
+            const MODULE_NAME: &'static str = $mod_str_name;
             type Fields = Fields;
         }
 
