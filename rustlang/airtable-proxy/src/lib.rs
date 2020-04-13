@@ -8,7 +8,6 @@ pub mod ctx;
 pub mod error;
 pub mod gen_schema;
 pub mod network;
-pub mod schema;
 pub mod transform;
 
 #[macro_export]
