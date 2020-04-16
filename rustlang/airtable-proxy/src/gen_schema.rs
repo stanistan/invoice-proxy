@@ -1,6 +1,7 @@
 pub trait Table {
     const NAME: &'static str;
-    type Fields: serde::de::DeserializeOwned;
+    const MODULE_NAME: &'static str;
+    type Fields: crate::serde::de::DeserializeOwned;
 }
 
 #[macro_export]
@@ -11,23 +12,25 @@ macro_rules! __gen_inner {
     ) => {
         pub mod gen {
             use super::*;
-            use crate::airtable::FetchCtx;
-            use crate::compose;
-            use crate::error::Error;
-            use crate::gen_schema::Table;
-            use crate::network::request::*;
-            use crate::network::response::One;
-            use crate::transform::*;
-            use serde::{Serialize, Deserialize};
+            use $crate::airtable::FetchCtx;
+            use $crate::compose;
+            use $crate::error::Error;
+            use $crate::gen_schema::Table;
+            use $crate::network::request::*;
+            use $crate::network::response::One;
+            use $crate::transform::*;
+
+            use $crate::serde::{Serialize, Deserialize};
+            use $crate::warp;
 
             // TODO: comment/splanations
-            $(__gen_inner!{@table $name, stringify!($name), ($table) -> $out { $($inner)* }})*
+            $($crate::__gen_inner!{@table $name, stringify!($name), ($table) -> $out { $($inner)* }})*
 
             /// Generated `warp::Filter` for all endpoints created by the schema.
-            pub fn route(ctx: crate::ctx::Ctx) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+            pub fn route(ctx: $crate::ctx::Ctx) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
                 use warp::Filter;
-                let ctx_cache = crate::ctx::ctx_cache::route(ctx.clone());
-                crate::build_route!(ctx, ctx_cache, [ $( $name::endpoints::route ),* ])
+                let ctx_cache = $crate::ctx::ctx_cache::route(ctx.clone());
+                $crate::build_route!(ctx, ctx_cache, [ $( $name::endpoints::route ),* ])
             }
         }
     };
@@ -44,7 +47,7 @@ macro_rules! __gen_inner {
             use super::*;
 
             // generate the fields and structs for mapping/transformation
-            $(__gen_inner!{@fields $table, [ $($fields)* ]})?
+            $($crate::__gen_inner!{@fields $mod_str_name, $table, [ $($fields)* ]})?
 
             // insert any module that's been done there, inlined
             $($($module)*)?
@@ -52,7 +55,7 @@ macro_rules! __gen_inner {
             pub mod param {
                 #![allow(unused)]
                 use super::*;
-                pure_fn!(as_id_query(id: String) -> Param<Mapped> {
+                $crate::pure_fn!(as_id_query(id: String) -> Param<Mapped> {
                     Ok(Param::new_query("ID".to_string(), id))
                 });
             }
@@ -61,9 +64,9 @@ macro_rules! __gen_inner {
             pub mod endpoints {
                 #![allow(unused)]
                 use super::*;
-                use crate::ctx::Ctx;
-                use warp::{Filter, Reply, Rejection};
-                __gen_inner!{@endpoints $mod_str_name, [ $($($endpoints)*)? ]}
+                use $crate::ctx::Ctx;
+                use $crate::warp;
+                $crate::__gen_inner!{@endpoints $mod_str_name, [ $($($endpoints)*)? ]}
             }
         }
 
@@ -85,7 +88,10 @@ macro_rules! __gen_inner {
         $(pub mod $name {
             #![allow(unused)]
             use super::*;
-            use crate::ctx::with_ctx;
+            use $crate::ctx::with_ctx;
+
+            use $crate::warp;
+            use $crate::warp::{Filter, Rejection, Reply};
 
             pub fn route(ctx: Ctx) -> impl Filter<Extract = impl Reply, Error = Rejection> + Clone {
                 warp::path($mod_str_name)
@@ -116,13 +122,13 @@ macro_rules! __gen_inner {
 
         })*
 
-        pub fn route(ctx: Ctx) -> impl Filter<Extract = impl Reply, Error = Rejection> + Clone {
-
+        pub fn route(ctx: Ctx) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+            use warp::Filter;
             let default_route = warp::path($mod_str_name)
                 .and(warp::get())
                 .map(|| format!("fine.... {}", $mod_str_name));
 
-            crate::build_route!(ctx, [ $($name::route),* ], default_route)
+            $crate::build_route!(ctx, [ $($name::route),* ], default_route)
         }
     };
     //
@@ -131,7 +137,7 @@ macro_rules! __gen_inner {
     // and we want to parse for the module, as well as the more complex
     // mapping of the fully hydrated type that will be constructed.
     (
-        @fields $table:expr, [
+        @fields $mod_str_name:expr, $table:expr, [
             $($name:ident $(($from:ty))? $(-> $to:ty)? {
                 source = $rename:expr;
                 $(exec = $($exec:expr),*;)?
@@ -142,17 +148,18 @@ macro_rules! __gen_inner {
         pub struct Fields {
             $(
                 #[serde(rename = $rename)]
-                pub $name: __gen_inner!(@choose_field_type $($from)? | $($to)?),
+                pub $name: $crate::__gen_inner!(@choose_field_type $($from)? | $($to)?),
             )*
         }
 
         #[derive(Debug, Serialize)]
         pub struct Mapped {
-            $( pub $name: __gen_inner!(@choose_field_type $($to)? |),)*
+            $( pub $name: $crate::__gen_inner!(@choose_field_type $($to)? |),)*
         }
 
         impl Table for Mapped {
             const NAME: &'static str = $table;
+            const MODULE_NAME: &'static str = $mod_str_name;
             type Fields = Fields;
         }
 
@@ -197,7 +204,7 @@ macro_rules! __gen_inner {
 #[macro_export]
 macro_rules! gen_airtable_schema {
     ($($tt:tt)*) => {
-        __gen_inner!{@main $($tt)*}
+        $crate::__gen_inner!{@main $($tt)*}
     }
 }
 
@@ -210,7 +217,7 @@ macro_rules! build_route {
         $name($ctx.clone())
     };
     ($ctx:expr, [ $name:expr, $($ns:expr),+ ], $($default:expr)?) => {
-        build_route!($ctx, $name($ctx.clone()), [ $($ns),+ ])
+        $crate::build_route!($ctx, $name($ctx.clone()), [ $($ns),+ ])
     };
     ($ctx:expr, $r:expr, [ ]) => {
         $r
@@ -225,6 +232,6 @@ macro_rules! build_route {
         $r.or($name($ctx.clone()))
     };
     ($ctx:expr, $r:expr, [ $name:expr, $($ns:expr),+ ]) => {
-        build_route!($ctx, $r.or($name($ctx.clone())), [ $($ns),+ ])
+        $crate::build_route!($ctx, $r.or($name($ctx.clone())), [ $($ns),+ ])
     };
 }
