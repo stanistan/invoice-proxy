@@ -1,5 +1,4 @@
 use airtable_proxy::*;
-use airtable_proxy::serde::*;
 
 gen_airtable_schema! {
 
