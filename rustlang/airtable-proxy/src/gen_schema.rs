@@ -1,10 +1,10 @@
 pub trait Table {
     const NAME: &'static str;
     const MODULE_NAME: &'static str;
-    type Fields: crate::serde::de::DeserializeOwned;
+    type Fields: serde::de::DeserializeOwned;
 }
 
-#[macro_export]
+#[macro_export(local_inner_macros)]
 macro_rules! __gen_inner {
 
     (
@@ -20,17 +20,16 @@ macro_rules! __gen_inner {
             use $crate::network::response::One;
             use $crate::transform::*;
 
-            use $crate::serde::{Serialize, Deserialize};
             use $crate::warp;
 
             // TODO: comment/splanations
-            $($crate::__gen_inner!{@table $name, stringify!($name), ($table) -> $out { $($inner)* }})*
+            $(__gen_inner!{@table $name, std::stringify!($name), ($table) -> $out { $($inner)* }})*
 
             /// Generated `warp::Filter` for all endpoints created by the schema.
             pub fn route(ctx: $crate::ctx::Ctx) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
                 use warp::Filter;
                 let ctx_cache = $crate::ctx::ctx_cache::route(ctx.clone());
-                $crate::build_route!(ctx, ctx_cache, [ $( $name::endpoints::route ),* ])
+                build_route!(ctx, ctx_cache, [ $( $name::endpoints::route ),* ])
             }
         }
     };
@@ -47,7 +46,7 @@ macro_rules! __gen_inner {
             use super::*;
 
             // generate the fields and structs for mapping/transformation
-            $($crate::__gen_inner!{@fields $mod_str_name, $table, [ $($fields)* ]})?
+            $(__gen_inner!{@fields $mod_str_name, $table, [ $($fields)* ]})?
 
             // insert any module that's been done there, inlined
             $($($module)*)?
@@ -55,8 +54,8 @@ macro_rules! __gen_inner {
             pub mod param {
                 #![allow(unused)]
                 use super::*;
-                $crate::pure_fn!(as_id_query(id: String) -> Param<Mapped> {
-                    Ok(Param::new_query("ID".to_string(), id))
+                pure!(as_id_query(id: String) -> Param<Mapped> {
+                    Param::new_query("ID".to_string(), id)
                 });
             }
 
@@ -66,7 +65,7 @@ macro_rules! __gen_inner {
                 use super::*;
                 use $crate::ctx::Ctx;
                 use $crate::warp;
-                $crate::__gen_inner!{@endpoints $mod_str_name, [ $($($endpoints)*)? ]}
+                __gen_inner!{@endpoints $mod_str_name, [ $($($endpoints)*)? ]}
             }
         }
 
@@ -102,7 +101,7 @@ macro_rules! __gen_inner {
             }
 
             async fn handler(ctx: &mut FetchCtx, arg: $from) -> Result<$to, Error> {
-                $crate::trace!("exec [{}] with arg={}", stringify!( $($($exec),*)? ), arg);
+                trace!("exec [{}] with arg={}", std::stringify!( $($($exec),*)? ), arg);
                 compose!(ctx, arg, [ $($($exec),*)? ])
             }
 
@@ -120,9 +119,9 @@ macro_rules! __gen_inner {
             use warp::Filter;
             let default_route = warp::path($mod_str_name)
                 .and(warp::get())
-                .map(|| format!("fine.... {}", $mod_str_name));
+                .map(|| std::format!("fine.... {}", $mod_str_name));
 
-            $crate::build_route!(ctx, [ $($name::route),* ], default_route)
+            build_route!(ctx, [ $($name::route),* ], default_route)
         }
     };
     //
@@ -142,13 +141,13 @@ macro_rules! __gen_inner {
         pub struct Fields {
             $(
                 #[serde(rename = $rename)]
-                pub $name: $crate::__gen_inner!(@choose_field_type $($from)? | $($to)?),
+                pub $name: __gen_inner!(@choose_field_type $($from)? | $($to)?),
             )*
         }
 
         #[derive(Debug, Serialize)]
         pub struct Mapped {
-            $( pub $name: $crate::__gen_inner!(@choose_field_type $($to)? |),)*
+            $( pub $name: __gen_inner!(@choose_field_type $($to)? |),)*
         }
 
         impl Table for Mapped {
@@ -198,20 +197,17 @@ macro_rules! __gen_inner {
 #[macro_export]
 macro_rules! gen_airtable_schema {
     ($($tt:tt)*) => {
-        $crate::__gen_inner!{@main $($tt)*}
+        __gen_inner!{@main $($tt)*}
     }
 }
 
-#[macro_export]
+#[macro_export(local_inner_macros)]
 macro_rules! build_route {
-    ($ctx:expr, [ ]) => {
-        unimplemented!("Missing any defined endpoints")
-    };
     ($ctx:expr, [ $name:expr ], $($default:expr)?) => {
         $name($ctx.clone())
     };
     ($ctx:expr, [ $name:expr, $($ns:expr),+ ], $($default:expr)?) => {
-        $crate::build_route!($ctx, $name($ctx.clone()), [ $($ns),+ ])
+        build_route!($ctx, $name($ctx.clone()), [ $($ns),+ ])
     };
     ($ctx:expr, $r:expr, [ ]) => {
         $r
@@ -226,6 +222,6 @@ macro_rules! build_route {
         $r.or($name($ctx.clone()))
     };
     ($ctx:expr, $r:expr, [ $name:expr, $($ns:expr),+ ]) => {
-        $crate::build_route!($ctx, $r.or($name($ctx.clone())), [ $($ns),+ ])
+        build_route!($ctx, $r.or($name($ctx.clone())), [ $($ns),+ ])
     };
 }

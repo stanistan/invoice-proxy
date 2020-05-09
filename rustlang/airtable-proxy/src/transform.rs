@@ -1,12 +1,3 @@
-//!
-//! Every public function in this module should be...
-//!
-//! 1. async
-//! 2. take a ctx as a first parameter,
-//! 3. take the second parameter via ownership
-//! 4. return a `Result<_, Error>` which is defined below.
-//!
-
 #![allow(unused)]
 
 use crate::error::Error;
@@ -14,7 +5,7 @@ use crate::error::Error;
 pub type MaybeBool = Option<bool>;
 pub type IDs = Vec<String>;
 
-#[macro_export]
+#[macro_export(local_inner_macros)]
 macro_rules! compose {
 
     ($c:expr, $e:expr, [ ]) => {
@@ -33,48 +24,81 @@ macro_rules! compose {
     };
 }
 
-#[macro_export]
-macro_rules! pure_fn {
+#[macro_export(local_inner_macros)]
+macro_rules! pure {
     (
-        $name: ident $(<$T:ident $(: $tokens:tt)?>)?
-        (
-            $arg_name:ident : $arg_type:ty
-        )
-        -> $ret:ty { $($body:tt)* }
+        @generate {
+            name $fn_name:ident,
+            generics $(<$T: ident $(:$T_tokens:tt)?>)?,
+            mutable $($mut:ident)?,
+            arg_name $arg_name:ident,
+            arg_type $arg_type:ty,
+            returning $ret:ty {
+                $($body:tt)*
+            }
+        }
     ) => {
-        pub async fn $name $(<$T $(: $tokens)?>)?(_: &$crate::airtable::FetchCtx, $arg_name: $arg_type) -> Result<$ret, $crate::error::Error> {
+        pub async fn $fn_name $(<$T $(:$T_tokens)?>)? (
+            _: &$crate::airtable::FetchCtx,
+            $($mut)? $arg_name: $arg_type
+        ) -> Result<$ret, $crate::error::Error> {
             $($body)*
         }
-    }
+    };
+    (fn $name:ident $(<$T:ident $(:$T_clause:tt)?>)? (mut $a:ident : $t:ty) -> $r:ty { $($b:tt)* }) => {
+        pure!(@generate {
+            name $name,
+            generics $(<$T $(:$T_clause)?>)?,
+            mutable mut,
+            arg_name $a,
+            arg_type $t,
+            returning $r {
+                $($b)*
+            }
+        });
+    };
+    (fn $name:ident $(<$T:ident $(:$T_clause:tt)?>)? ($a:ident : $t:ty) -> $r:ty { $($b:tt)* }) => {
+        pure!(@generate {
+            name $name,
+            generics $(<$T $(:$T_clause)?>)?,
+            mutable ,
+            arg_name $a,
+            arg_type $t,
+            returning $r {
+                $($b)*
+            }
+        });
+    };
+    ($name:ident $(<$T:ident $(:$T_clause:tt)?>)? ($a:ident : $t:ty) -> $r:ty { $($b:tt)* }) => {
+        pure!(@generate {
+            name $name,
+            generics $(<$T $(:$T_clause)?>)?,
+            mutable mut,
+            arg_name $a,
+            arg_type $t,
+            returning $r {
+                Ok($($b)*)
+            }
+        });
+    };
 }
 
-pure_fn!(copy<T: Copy>(t: T) -> T {
-    Ok(t)
+pure!(force_bool(val: MaybeBool) -> bool { val.unwrap_or(false) });
+
+pure!(id<T: Sized>(t: T) -> T { t });
+
+
+pure!(split_lines(val: String) -> Vec<String> {
+    val.split('\n').map(|s| s.to_owned()).collect()
 });
 
-pure_fn!(id<T: Sized>(t: T) -> T {
-    Ok(t)
-});
+pure!(into_vec<T>(value: T) -> Vec<T> { vec![value] });
 
-pure_fn!(force_bool(val: MaybeBool) -> bool {
-    Ok(val.unwrap_or(false))
-});
 
-pure_fn!(split_lines(val: String) -> Vec<String> {
-    Ok(val.split('\n').map(|s| s.to_owned()).collect())
-});
-
-fn get_first<T>(mut vec: Vec<T>) -> Result<T, Error> {
+pure!(fn first<T>(mut vec: Vec<T>) -> T {
     match vec.get(0) {
         None => Err(Error::Map("Cannot get the first item from an empty vec")),
         _ => Ok(vec.swap_remove(0)),
     }
-}
-
-pure_fn!(first<T>(vec: Vec<T>) -> T {
-    get_first(vec)
 });
 
-pure_fn!(into_vec<T>(value: T) -> Vec<T> {
-    Ok(vec![value])
-});

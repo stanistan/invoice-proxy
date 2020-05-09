@@ -1,8 +1,9 @@
 use airtable_proxy::error::Error;
 use airtable_proxy::*;
 
-pure_fn!(money(val: u32) -> String {
-    // FIXME: this doesn't do anything with decimals :(
+//
+// FIXME: this doesn't do anything with decimals :(
+pure!(fn money(val: u32) -> String {
     use num_format::{Locale, WriteFormatted};
     let mut buf = String::from("$");
     if buf.write_formatted(&val, &Locale::en).is_err() {
@@ -21,7 +22,7 @@ gen_airtable_schema! {
             }
         }
         module {
-            pure_fn!(get_name(unit: Mapped) -> String { Ok(unit.name) });
+            pure!(get_name(unit: Mapped) -> String { unit.name });
         }
     }
 
