@@ -87,18 +87,17 @@ pure!(force_bool(val: MaybeBool) -> bool { val.unwrap_or(false) });
 
 pure!(id<T: Sized>(t: T) -> T { t });
 
-
 pure!(split_lines(val: String) -> Vec<String> {
     val.split('\n').map(|s| s.to_owned()).collect()
 });
 
 pure!(into_vec<T>(value: T) -> Vec<T> { vec![value] });
 
-
-pure!(fn first<T>(mut vec: Vec<T>) -> T {
-    match vec.get(0) {
-        None => Err(Error::Map("Cannot get the first item from an empty vec")),
-        _ => Ok(vec.swap_remove(0)),
+pure!(
+    fn first<T>(mut vec: Vec<T>) -> T {
+        match vec.get(0) {
+            None => Err(Error::Map("Cannot get the first item from an empty vec")),
+            _ => Ok(vec.swap_remove(0)),
+        }
     }
-});
-
+);

@@ -3,15 +3,17 @@ use airtable_proxy::*;
 
 //
 // FIXME: this doesn't do anything with decimals :(
-pure!(fn money(val: u32) -> String {
-    use num_format::{Locale, WriteFormatted};
-    let mut buf = String::from("$");
-    if buf.write_formatted(&val, &Locale::en).is_err() {
-        return Err(Error::Map("could not format money"));
+pure!(
+    fn money(val: u32) -> String {
+        use num_format::{Locale, WriteFormatted};
+        let mut buf = String::from("$");
+        if buf.write_formatted(&val, &Locale::en).is_err() {
+            return Err(Error::Map("could not format money"));
+        }
+        buf.push_str(".00");
+        Ok(buf)
     }
-    buf.push_str(".00");
-    Ok(buf)
-});
+);
 
 gen_airtable_schema! {
 

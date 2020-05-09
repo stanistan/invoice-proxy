@@ -48,7 +48,6 @@ impl std::fmt::Debug for Error {
             UrlParser(ref e) => write!(f, "Url formatting error: {}", e),
         }
     }
-
 }
 
 impl warp::reject::Reject for Error {}
