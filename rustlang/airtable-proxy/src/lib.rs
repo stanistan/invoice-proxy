@@ -2,6 +2,9 @@ pub use warp;
 pub use serde;
 pub use tokio;
 
+pub use pretty_env_logger;
+pub use log::{debug, info, trace};
+
 pub mod airtable;
 pub mod config;
 pub mod ctx;
@@ -11,24 +14,28 @@ pub mod network;
 pub mod transform;
 
 #[macro_export]
-macro_rules! run_proxy {
+macro_rules! start_proxy {
     ($namespace:ident) => {
         #[tokio::main]
         async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-            $crate::run_proxy!(@inner $namespace)
+            pretty_env_logger::init();
+            $crate::start_proxy!(@inner $namespace)
         }
     };
     (@inner $namespace:ident) => {{
+        info!("Attempting to start the proxy.");
         //
         // make sure we can airtable, yo, that we have the
         // right env setup/permissions here.
         let ctx = $crate::airtable::FetchCtx::from_env()?;
+        debug!("FetchCtx constructed.");
 
         //
         // get our server port from the environment, default is 3000
         let address: ::std::net::SocketAddr = ::std::env::var("HOST")
             .unwrap_or_else(|_| "127.0.0.1:3000".to_string())
             .parse()?;
+        debug!("parsed out address={}", address);
 
         //
         // make our context async ready
@@ -43,8 +50,7 @@ macro_rules! run_proxy {
         // can output here.
         let router = $namespace::gen::route(ctx);
 
-        //TODO: LOGGER
-        println!("will be serving the app on {}", address);
+        info!("Starting proxy on port={}", address);
         $crate::warp::serve(router).run(address).await;
 
         Ok(())

@@ -102,13 +102,7 @@ macro_rules! __gen_inner {
             }
 
             async fn handler(ctx: &mut FetchCtx, arg: $from) -> Result<$to, Error> {
-                println!(
-                    "Executing generated handler module={} query_handler={} exec=[{}] arg={}",
-                    $mod_str_name,
-                    stringify!($name),
-                    stringify!( $($($exec),*)? ),
-                    arg
-                );
+                $crate::trace!("exec [{}] with arg={}", stringify!( $($($exec),*)? ), arg);
                 compose!(ctx, arg, [ $($($exec),*)? ])
             }
 
