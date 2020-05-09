@@ -1,5 +1,5 @@
-use airtable_proxy::*;
 use airtable_proxy::error::Error;
+use airtable_proxy::*;
 
 pure_fn!(money(val: u32) -> String {
     // FIXME: this doesn't do anything with decimals :(

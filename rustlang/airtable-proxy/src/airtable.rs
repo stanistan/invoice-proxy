@@ -7,6 +7,7 @@ use serde_json::Value;
 type Result<T> = std::result::Result<T, Error>;
 
 async fn fetch(client: reqwest::Client, url: Url, auth: &str) -> Result<Value> {
+    crate::trace!("fetch | url={}", url);
     let response = client
         .get(url)
         .bearer_auth(auth)
@@ -16,10 +17,11 @@ async fn fetch(client: reqwest::Client, url: Url, auth: &str) -> Result<Value> {
     if response.status().is_success() {
         response.json().await.map_err(Error::Req)
     } else {
-        Err(Error::Response {
-            status: response.status().to_string(),
-            url: format!("{}", response.url()),
-        })
+        // FIXME maybe not strings later?
+        let url = format!("{}", response.url());
+        let status = response.status().to_string();
+        crate::warn!("fetch | NON-OK Response. status={} url={}", status, url);
+        Err(Error::Response { status, url })
     }
 }
 

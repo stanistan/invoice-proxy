@@ -3,7 +3,7 @@ pub use serde;
 pub use tokio;
 
 pub use pretty_env_logger;
-pub use log::{debug, info, trace};
+pub use log::{debug, info, trace, warn};
 
 pub mod airtable;
 pub mod config;
