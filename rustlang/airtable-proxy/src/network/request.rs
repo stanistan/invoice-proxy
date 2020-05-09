@@ -55,7 +55,10 @@ pub async fn one<U: Table>(ctx: &mut FetchCtx, param: Param<U>) -> Result<One<U:
             if let Some(id) = ids.first() {
                 ctx.fetch_id(U::NAME, &id).await
             } else {
-                Err(Error::Map("missing ids at param construction"))
+                Err(Error::RequestParams {
+                    table: U::NAME,
+                    message: "Missing ids at parameter construction"
+                })
             }
         }
     }

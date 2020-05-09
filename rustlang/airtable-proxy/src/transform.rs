@@ -96,7 +96,9 @@ pure!(into_vec<T>(value: T) -> Vec<T> { vec![value] });
 pure!(
     fn first<T>(mut vec: Vec<T>) -> T {
         match vec.get(0) {
-            None => Err(Error::Map("Cannot get the first item from an empty vec")),
+            None => Err(Error::Transform {
+                message: "Cannot get the first item from an empty vec"
+            }),
             _ => Ok(vec.swap_remove(0)),
         }
     }

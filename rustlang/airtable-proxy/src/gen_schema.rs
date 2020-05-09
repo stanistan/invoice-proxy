@@ -163,7 +163,10 @@ macro_rules! __gen_inner {
                     $(
                         $name: match compose!(ctx, one.fields.$name, [ $($($exec),*)? ]) {
                             Ok(val) => val,
-                            Err(e) => return Err(Error::Create($table, Box::new(e))),
+                            Err(e) => return Err(Error::Create {
+                                table: $table,
+                                source: Box::new(e),
+                            })
                         }
                      ),*
                 })

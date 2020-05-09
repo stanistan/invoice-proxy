@@ -8,7 +8,9 @@ pure!(
         use num_format::{Locale, WriteFormatted};
         let mut buf = String::from("$");
         if buf.write_formatted(&val, &Locale::en).is_err() {
-            return Err(Error::Map("could not format money"));
+            return Err(Error::Transform {
+                message: "could not format money"
+            });
         }
         buf.push_str(".00");
         Ok(buf)
