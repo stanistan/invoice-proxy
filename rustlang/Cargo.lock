@@ -439,6 +439,7 @@ name = "invoice-proxy"
 version = "0.1.0"
 dependencies = [
  "airtable-proxy 0.1.0",
+ "num-format 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.104 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 

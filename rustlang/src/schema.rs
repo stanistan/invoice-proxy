@@ -1,4 +1,16 @@
 use airtable_proxy::*;
+use airtable_proxy::error::Error;
+
+pure_fn!(money(val: u32) -> String {
+    // FIXME: this doesn't do anything with decimals :(
+    use num_format::{Locale, WriteFormatted};
+    let mut buf = String::from("$");
+    if buf.write_formatted(&val, &Locale::en).is_err() {
+        return Err(Error::Map("could not format money"));
+    }
+    buf.push_str(".00");
+    Ok(buf)
+});
 
 gen_airtable_schema! {
 

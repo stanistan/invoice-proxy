@@ -9,7 +9,6 @@
 
 #![allow(unused)]
 
-use crate::airtable::FetchCtx;
 use crate::error::Error;
 
 pub type MaybeBool = Option<bool>;
@@ -43,7 +42,7 @@ macro_rules! pure_fn {
         )
         -> $ret:ty { $($body:tt)* }
     ) => {
-        pub async fn $name $(<$T $(: $tokens)?>)?(_: &FetchCtx, $arg_name: $arg_type) -> Result<$ret, Error> {
+        pub async fn $name $(<$T $(: $tokens)?>)?(_: &$crate::airtable::FetchCtx, $arg_name: $arg_type) -> Result<$ret, $crate::error::Error> {
             $($body)*
         }
     }
@@ -59,17 +58,6 @@ pure_fn!(id<T: Sized>(t: T) -> T {
 
 pure_fn!(force_bool(val: MaybeBool) -> bool {
     Ok(val.unwrap_or(false))
-});
-
-pure_fn!(money(val: u32) -> String {
-    // FIXME: this doesn't do anything with decimals :(
-    use num_format::{Locale, WriteFormatted};
-    let mut buf = String::from("$");
-    if buf.write_formatted(&val, &Locale::en).is_err() {
-        return Err(Error::Map("could not format money"));
-    }
-    buf.push_str(".00");
-    Ok(buf)
 });
 
 pure_fn!(split_lines(val: String) -> Vec<String> {

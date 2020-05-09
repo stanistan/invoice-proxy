@@ -1,9 +1,7 @@
-//!
 //! This describes the shapes of requests and how we can make them, generically
 //! based on the structure of an airtable `Table`.
 //!
 //! We can then either do an HTTP Request for `one` or `many` of these `Param`.
-//!
 
 use super::response::{List, Many, One};
 use crate::airtable::FetchCtx;
@@ -13,9 +11,10 @@ use std::marker::PhantomData;
 
 type Result<T> = std::result::Result<T, Error>;
 
-/// The enum represents the kinds of GET requests we can make to the Airtable API.
+/// The enum represents the kinds of GET requests we can make to the Airtable API...
 pub enum Param<T> {
-    /// This is a GET Request that will return a list, that we can do a key/value filter over.
+    /// This is a GET Request that will return a list, that we can do a key/value
+    /// filtering over it.
     Query {
         key: String,
         value: String,
