@@ -41,16 +41,16 @@ impl Cache {
         url: Url,
         f: F,
     ) -> JSONResult {
-        // we have it!
-        if let Some(value) = self.storage.get(&url) {
+        Ok(if let Some(value) = self.storage.get(&url) {
+            crate::debug!("hit | url={}", url);
             self.stats.hits += 1;
-            return Ok(value.clone());
-        }
-
-        // ok we don't have it.
-        self.stats.misses += 1;
-        let value = f(url.clone()).await?;
-        self.storage.insert(url, value.clone());
-        Ok(value)
+            value.clone()
+        } else {
+            crate::debug!("miss | url={}", url);
+            self.stats.misses += 1;
+            let value = f(url.clone()).await?;
+            self.storage.insert(url, value.clone());
+            value
+        })
     }
 }
